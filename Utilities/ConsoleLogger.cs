@@ -65,6 +65,37 @@ namespace Commons.VersionBumper.Utilities
 			LogWarn(() => Format(format, args));
 		}
 
+		private class Indenter : IDisposable
+		{
+			public Indenter(ConsoleLogger parent, bool quiet)
+			{
+				_parent = parent;
+				_debug = _parent.IsDebugEnabled;
+				_info = _parent.IsInfoEnabled;
+				_warn = _parent.IsWarnEnabled;
+				if (quiet)
+					_parent.IsDebugEnabled = _parent.IsInfoEnabled = _parent.IsWarnEnabled = false;
+				_parent._indentLevel++;
+				_parent._indentSpacer = new String(' ', _parent._indentLevel * 4);
+			}
+
+			public void Dispose()
+			{
+				if (_parent._indentLevel > 0) {
+					_parent._indentLevel--;
+					_parent._indentSpacer = new String(' ', _parent._indentLevel * 4);
+				}
+				_parent.IsDebugEnabled = _debug;
+				_parent.IsInfoEnabled = _info;
+				_parent.IsWarnEnabled = _warn;
+			}
+
+			private bool _debug;
+			private bool _info;
+			private ConsoleLogger _parent;
+			private bool _warn;
+		}
+
 		private int _indentLevel;
 
 		private string _indentSpacer;
@@ -109,37 +140,6 @@ namespace Commons.VersionBumper.Utilities
 		{
 			if (IsDebugEnabled)
 				Log(ConsoleColor.Yellow, "WARN: ", emit);
-		}
-
-		private class Indenter : IDisposable
-		{
-			public Indenter(ConsoleLogger parent, bool quiet)
-			{
-				_parent = parent;
-				_debug = _parent.IsDebugEnabled;
-				_info = _parent.IsInfoEnabled;
-				_warn = _parent.IsWarnEnabled;
-				if (quiet)
-					_parent.IsDebugEnabled = _parent.IsInfoEnabled = _parent.IsWarnEnabled = false;
-				_parent._indentLevel++;
-				_parent._indentSpacer = new String(' ', _parent._indentLevel * 4);
-			}
-
-			public void Dispose()
-			{
-				if (_parent._indentLevel > 0) {
-					_parent._indentLevel--;
-					_parent._indentSpacer = new String(' ', _parent._indentLevel * 4);
-				}
-				_parent.IsDebugEnabled = _debug;
-				_parent.IsInfoEnabled = _info;
-				_parent.IsWarnEnabled = _warn;
-			}
-
-			private bool _debug;
-			private bool _info;
-			private ConsoleLogger _parent;
-			private bool _warn;
 		}
 	}
 }

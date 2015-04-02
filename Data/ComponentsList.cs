@@ -42,7 +42,7 @@ namespace Commons.VersionBumper.Data
 					});
 			} else
 				if (orderByTreeDepth)
-				list.Sort((c1, c2) => (c2.DependentComponents.Count() - c1.DependentComponents.Count()));
+					list.Sort((c1, c2) => (c2.DependentComponents.Count() - c1.DependentComponents.Count()));
 			return list;
 		}
 
@@ -148,17 +148,9 @@ namespace Commons.VersionBumper.Data
 			_list.Sort((c1, c2) => c1.Name.CompareTo(c2.Name));
 		}
 
-		private List<IComponent> _list = new List<IComponent>();
-
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
 		{
 			return _list.GetEnumerator();
-		}
-
-		private bool isOrphan(IComponent c)
-		{
-			var p = c as IProject;
-			return (p != null) && (p.Parents.Count() == 0);
 		}
 
 		private class LayeredDependencies : IEnumerable<IComponent>
@@ -174,6 +166,11 @@ namespace Commons.VersionBumper.Data
 				foreach (var list in lists)
 					foreach (var component in list)
 						yield return component;
+			}
+
+			System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+			{
+				return GetEnumerator();
 			}
 
 			private List<List<IComponent>> lists;
@@ -192,11 +189,14 @@ namespace Commons.VersionBumper.Data
 				lists.Insert(0, itemsAbove);
 				Divide(itemsHere);
 			}
+		}
 
-			System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-			{
-				return GetEnumerator();
-			}
+		private List<IComponent> _list = new List<IComponent>();
+
+		private bool isOrphan(IComponent c)
+		{
+			var p = c as IProject;
+			return (p != null) && (p.Parents.Count() == 0);
 		}
 	}
 }

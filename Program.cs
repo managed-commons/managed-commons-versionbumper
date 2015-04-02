@@ -13,7 +13,8 @@ namespace Commons.VersionBumper
 		{
 			try {
 				new BumpVersionExecutor().Process(new ConsoleLogger(false), args, new CSharpComponentsFactory());
-			} catch {
+			} catch (Exception e) {
+				Console.WriteLine(e);
 			}
 			Console.WriteLine("Done");
 		}

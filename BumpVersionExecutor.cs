@@ -55,7 +55,7 @@ namespace Commons.VersionBumper.Commands
 		private static bool BumpUp(ILogger logger, IVersionable component, VersionPart partToBump)
 		{
 			var componentName = component.Name;
-			Version currentVersion = component.CurrentVersion;
+			Version currentVersion = component.CurrentVersion.Bump(VersionPart.None);
 			Version newVersion = currentVersion.Bump(partToBump);
 			if (component.SetNewVersion(logger, newVersion)) {
 				logger.Info("Bumped component '{0}' version from {1} to {2}", componentName, currentVersion.ToString(), newVersion.ToString());

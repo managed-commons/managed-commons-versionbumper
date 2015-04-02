@@ -14,11 +14,6 @@ namespace Commons.VersionBumper.Components
 
 		public string FullPath { get; private set; }
 
-		public override string Version
-		{
-			get { throw new NotImplementedException(); }
-		}
-
 		public bool Equals(IProject other)
 		{
 			return IsEqual(other);

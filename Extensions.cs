@@ -17,24 +17,22 @@ namespace Commons.VersionBumper
 
 	public static class Extensions
 	{
-		static char[] PATH_SEPARATOR = new[] { Path.PathSeparator };
-
 		public static Version Bump(this Version oldVersion, VersionPart partToBump)
 		{
 			switch (partToBump) {
 				case VersionPart.Major:
-					return new Version(oldVersion.Major + 1, 0, 0, 0);
+					return new Version(oldVersion.Major + 1, 0, 0);
 
 				case VersionPart.Minor:
-					return new Version(oldVersion.Major, oldVersion.Minor + 1, 0, 0);
+					return new Version(oldVersion.Major, oldVersion.Minor + 1, 0);
 
 				case VersionPart.Build:
-					return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build + 1, 0);
+					return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build + 1);
 
 				case VersionPart.Revision:
 					return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build, oldVersion.Revision + 1);
 			}
-			return oldVersion;
+			return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build);
 		}
 
 		public static string Combine(this string path, string relativePath)
@@ -49,30 +47,6 @@ namespace Commons.VersionBumper
 			return string.Format(format, args);
 		}
 
-		public static string RegexReplace(this string text, string pattern, string replace, string altPattern = null, string altReplace = null)
-		{
-			if (Regex.IsMatch(text, pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase))
-				return Regex.Replace(text, pattern, replace, RegexOptions.Multiline | RegexOptions.IgnoreCase);
-			else if (!string.IsNullOrWhiteSpace(altPattern))
-				return Regex.Replace(text, altPattern, altReplace, RegexOptions.Multiline | RegexOptions.IgnoreCase);
-			return text;
-		}
-
-		public static void TransformFile(this string filename, Func<string, string> transformer)
-		{
-			TurnOffReadOnlyAttribute(filename);
-			File.WriteAllText(filename, transformer(File.ReadAllText(filename)));
-		}
-
-		private static void TurnOffReadOnlyAttribute(string filename)
-		{
-			var attribs = File.GetAttributes(filename);
-			if (attribs.HasFlag(FileAttributes.ReadOnly)) {
-				attribs ^= FileAttributes.ReadOnly;
-				File.SetAttributes(filename, attribs);
-			}
-		}
-
 		public static string ParseStringParameter(this IEnumerable<string> args, string paramName, string @default = null)
 		{
 			paramName = "-" + paramName.Trim().ToLowerInvariant() + ":";
@@ -82,31 +56,40 @@ namespace Commons.VersionBumper
 			return arg.Substring(paramName.Length);
 		}
 
-		public static string ToLibFolder(this string framework)
+		public static string RegexReplace(this string text, string pattern, string replace, string altPattern = null, string altReplace = null)
 		{
-			switch (framework) {
-				case "v2.0":
-					return "net20";
-
-				case "v3.0":
-					return "net30";
-
-				case "v3.5":
-					return "net35";
-
-				case "v4.5":
-					return "net45";
-
-				default:
-					return "net40";
-			}
+			if (Regex.IsMatch(text, pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase))
+				return Regex.Replace(text, pattern, replace, RegexOptions.Multiline | RegexOptions.IgnoreCase);
+			else if (!string.IsNullOrWhiteSpace(altPattern))
+				return Regex.Replace(text, altPattern, altReplace, RegexOptions.Multiline | RegexOptions.IgnoreCase);
+			return text;
 		}
 
 		public static void SetVersion(this string versionFile, Version version)
 		{
-			string pattern = "(Assembly(Informational|File|))(Version\\(\")([^\"]*)(\"\\s*\\))";
+			string pattern = "(Assembly(File|))(Version\\(\")([^\"]*)(\"\\s*\\))";
 			string replace = "$1Version(\"" + version + "$5";
 			versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
+			pattern = "(AssemblyInformational)(Version\\(\")([^\"]*)(\"\\s*\\))";
+			replace = "$1Version(\"" + version.ToString(3) + "$5";
+			versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
+		}
+
+		public static void TransformFile(this string filename, Func<string, string> transformer)
+		{
+			TurnOffReadOnlyAttribute(filename);
+			File.WriteAllText(filename, transformer(File.ReadAllText(filename)));
+		}
+
+		private static char[] PATH_SEPARATOR = new[] { Path.PathSeparator };
+
+		private static void TurnOffReadOnlyAttribute(string filename)
+		{
+			var attribs = File.GetAttributes(filename);
+			if (attribs.HasFlag(FileAttributes.ReadOnly)) {
+				attribs ^= FileAttributes.ReadOnly;
+				File.SetAttributes(filename, attribs);
+			}
 		}
 	}
 }

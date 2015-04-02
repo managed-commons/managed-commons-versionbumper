@@ -5,8 +5,6 @@ namespace Commons.VersionBumper.Components.CSharp
 {
 	public class CSharpWebsite : CSharpProject
 	{
-		public readonly string SolutionPath;
-
 		public CSharpWebsite(string solutionPath, string webApplicationName, string webApplicationPath) :
 			base(Path.Combine(Path.GetDirectoryName(solutionPath), webApplicationPath))
 		{
@@ -14,6 +12,8 @@ namespace Commons.VersionBumper.Components.CSharp
 			Name = webApplicationName.Split('\\').Last(s => !string.IsNullOrWhiteSpace(s));
 			_isWeb = true;
 		}
+
+		public string SolutionPath { get; private set; }
 
 		public override string Type { get { return "C# Web Site"; } }
 

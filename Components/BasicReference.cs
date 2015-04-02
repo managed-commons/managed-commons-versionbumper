@@ -7,13 +7,6 @@ namespace Commons.VersionBumper.Components
 	{
 		public string Name { get; protected set; }
 
-		public string Platform
-		{
-			get { return "net40"; }	// FIXME need to have access to either the referenced project target platform or the consumer project's.
-		}
-
-		public abstract string Version { get; }
-
 		public bool Equals(IReference other)
 		{
 			return IsEqual(other);
