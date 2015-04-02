@@ -71,7 +71,7 @@ namespace Commons.VersionBumper
 			string replace = "$1Version(\"" + version + "$5";
 			versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
 			pattern = "(AssemblyInformational)(Version\\(\")([^\"]*)(\"\\s*\\))";
-			replace = "$1Version(\"" + version.ToString(3) + "$5";
+			replace = "$1Version(\"" + version.ToString(3) + "$4";
 			versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
 		}
 
