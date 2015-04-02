@@ -1,19 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace NugetCracker.Data
+namespace Commons.VersionBumper.Data
 {
 	[Serializable]
 	public class MetaProject
 	{
-		public List<string> Directories { get; private set; }
-		public List<string> ExcludedDirectories { get; private set; }
-		public string LastPublishedTo { get; set; }
-
 		public MetaProject()
 		{
 			Sanitize();
 		}
+
+		public List<string> Directories { get; private set; }
+
+		public List<string> ExcludedDirectories { get; private set; }
+
+		public string LastPublishedTo { get; set; }
 
 		public void Sanitize()
 		{

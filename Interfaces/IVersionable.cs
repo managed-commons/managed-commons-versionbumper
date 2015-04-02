@@ -1,10 +1,11 @@
 ﻿using System;
 
-namespace NugetCracker.Interfaces
+namespace Commons.VersionBumper.Interfaces
 {
 	public interface IVersionable : IComponent
 	{
-		bool SetNewVersion(ILogger log, Version version);
 		VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency);
+
+		bool SetNewVersion(ILogger log, Version version);
 	}
 }

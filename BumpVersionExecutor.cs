@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using NugetCracker.Data;
-using NugetCracker.Interfaces;
+using Commons.VersionBumper.Data;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Commands
+namespace Commons.VersionBumper.Commands
 {
 	public class BumpVersionExecutor
 	{
@@ -15,19 +15,19 @@ namespace NugetCracker.Commands
 			{
 				return @"B[umpVersion] [options] pattern [pattern] ...
 
-	Bumps up the [AssemblyVersion]/Package Version of the components and rebuilds/repackages. 
+	Bumps up the [AssemblyVersion]/Package Version of the components and rebuilds/repackages.
 	The [AssemblyFileVersion] attribute also is kept in sync with the [AssemblyVersion].
 
-	Update all dependent components to use the new build/package, also bumping up their 
-	version numbers using the specific policy for each component type, and them their dependent 
-    components and so on. 
+	Update all dependent components to use the new build/package, also bumping up their
+	version numbers using the specific policy for each component type, and them their dependent
+    components and so on.
 
-	If some components generate a Nuget, the Nuget is published to a temporary output 'source' 
+	If some components generate a Nuget, the Nuget is published to a temporary output 'source'
 	and the dependent components have their package references updated.
 
 	Options
-	-part:major|minor|build|revision		
-		Increments the major, minor, build, revision version number. 
+	-part:major|minor|build|revision
+		Increments the major, minor, build, revision version number.
 		If option is ommitted the default is to increment revision number.
 ";
 			}
@@ -36,7 +36,7 @@ namespace NugetCracker.Commands
 		public bool Process(ILogger logger, IEnumerable<string> args, params IComponentsFactory[] factories)
 		{
 			ComponentsList components = Rescan(logger, factories);
-            bool foundOne = false;
+			bool foundOne = false;
 			var partToBump = ParsePartToBump(logger, args);
 			foreach (var componentNamePattern in args.Where(s => !s.StartsWith("-"))) {
 				foundOne = true;
@@ -51,6 +51,31 @@ namespace NugetCracker.Commands
 			}
 			return true;
 		}
+
+		private static bool BumpUp(ILogger logger, IVersionable component, VersionPart partToBump)
+		{
+			var componentName = component.Name;
+			Version currentVersion = component.CurrentVersion;
+			Version newVersion = currentVersion.Bump(partToBump);
+			if (component.SetNewVersion(logger, newVersion)) {
+				logger.Info("Bumped component '{0}' version from {1} to {2}", componentName, currentVersion.ToString(), newVersion.ToString());
+				return true;
+			}
+			logger.Error("Could not bump component '{0}' version to {1}", componentName, newVersion.ToString());
+			return false;
+		}
+
+		private static VersionPart ParsePartToBump(ILogger logger, IEnumerable<string> args)
+		{
+			var defaultPart = "build";
+			var part = args.ParseStringParameter("part", defaultPart);
+			var versionPart = TranslateToVersionPart(part);
+			if (versionPart != VersionPart.None)
+				return versionPart;
+			logger.ErrorDetail("Invalid value for 'part' option: '{0}'. Using default value '{1}'.", part, defaultPart);
+			return TranslateToVersionPart(defaultPart);
+		}
+
 		private static ComponentsList Rescan(ILogger logger, IComponentsFactory[] factories)
 		{
 			var components = new ComponentsList();
@@ -71,28 +96,21 @@ namespace NugetCracker.Commands
 			return components;
 		}
 
-		private static VersionPart ParsePartToBump(ILogger logger, IEnumerable<string> args)
-		{
-			var defaultPart = "build";
-			var part = args.ParseStringParameter("part", defaultPart);
-			var versionPart = TranslateToVersionPart(part);
-			if (versionPart != VersionPart.None)
-				return versionPart;
-			logger.ErrorDetail("Invalid value for 'part' option: '{0}'. Using default value '{1}'.", part, defaultPart);
-			return TranslateToVersionPart(defaultPart);
-		}
-
 		private static VersionPart TranslateToVersionPart(string part)
 		{
 			switch (part) {
 				case "major":
 					return VersionPart.Major;
+
 				case "minor":
 					return VersionPart.Minor;
+
 				case "build":
 					return VersionPart.Build;
+
 				case "revision":
 					return VersionPart.Revision;
+
 				default:
 					return VersionPart.None;
 			}
@@ -113,20 +131,5 @@ namespace NugetCracker.Commands
 			}
 			return true;
 		}
-
-
-		private static bool BumpUp(ILogger logger, IVersionable component, VersionPart partToBump)
-		{
-			var componentName = component.Name;
-			Version currentVersion = component.CurrentVersion;
-			Version newVersion = currentVersion.Bump(partToBump);
-			if (component.SetNewVersion(logger, newVersion)) {
-				logger.Info("Bumped component '{0}' version from {1} to {2}", componentName, currentVersion.ToString(), newVersion.ToString());
-				return true;
-			}
-			logger.Error("Could not bump component '{0}' version to {1}", componentName, newVersion.ToString());
-			return false;
-		}
-
 	}
 }

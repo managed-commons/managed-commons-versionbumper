@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace NugetCracker.Interfaces
+namespace Commons.VersionBumper.Interfaces
 {
 	public interface IComponentsFactory
 	{

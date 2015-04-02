@@ -1,20 +1,22 @@
-﻿using NugetCracker.Interfaces;
-using System;
+﻿using System;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Components
+namespace Commons.VersionBumper.Components
 {
 	public abstract class BasicReference : IReference
 	{
 		public string Name { get; protected set; }
 
+		public string Platform
+		{
+			get { return "net40"; }	// FIXME need to have access to either the referenced project target platform or the consumer project's.
+		}
+
+		public abstract string Version { get; }
+
 		public bool Equals(IReference other)
 		{
 			return IsEqual(other);
-		}
-
-		private bool IsEqual(IReference other)
-		{
-			return other != null && Name == other.Name;
 		}
 
 		public override bool Equals(object obj)
@@ -27,12 +29,9 @@ namespace NugetCracker.Components
 			return Name.GetHashCode();
 		}
 
-		public string Platform
+		private bool IsEqual(IReference other)
 		{
-			get { return "net40"; } // FIXME need to have access to either the referenced project target platform or the consumer project's.
+			return other != null && Name == other.Name;
 		}
-
-		public abstract string Version { get; }
-
 	}
 }

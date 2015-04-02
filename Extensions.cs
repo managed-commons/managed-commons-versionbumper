@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace NugetCracker
+namespace Commons.VersionBumper
 {
 	public enum VersionPart
 	{

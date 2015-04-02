@@ -1,10 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
-using NugetCracker.Interfaces;
-using System;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Components.CSharp
+namespace Commons.VersionBumper.Components.CSharp
 {
 	public class CSharpComponentsFactory : IComponentsFactory
 	{

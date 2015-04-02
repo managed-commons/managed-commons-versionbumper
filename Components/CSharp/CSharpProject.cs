@@ -5,10 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using NugetCracker.Interfaces;
-using NugetCracker.Data;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Components.CSharp
+namespace Commons.VersionBumper.Components.CSharp
 {
 	public class CSharpProject : IProject
 	{
@@ -50,7 +49,7 @@ namespace NugetCracker.Components.CSharp
 
 		public virtual VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency)
 		{
-			return UsesNUnit || (ComponentType == "Library" && !_isWeb) ? partBumpedOnDependency : VersionPart.Revision;
+			return UsesNUnit || (ComponentType == "Library" && !_isWeb) ? partBumpedOnDependency : VersionPart.Build;
 		}
 
 		private static string AddSingleLibReference(string xml, string packageName, string assemblyName, string framework, string installedPackagesDir)
@@ -173,7 +172,6 @@ namespace NugetCracker.Components.CSharp
 			return Path.GetFileNameWithoutExtension(projectFileFullPath);
 		}
 
-
 		public bool SetNewVersion(ILogger logger, Version version)
 		{
 			if (version == CurrentVersion)
@@ -273,18 +271,15 @@ namespace NugetCracker.Components.CSharp
 			get { return _targetFrameworkVersion.ToLibFolder(); }
 		}
 
-
 		public IEnumerable<IProject> DependentProjects
 		{
 			get { return DependentComponents.Where(c => c is IProject).Cast<IProject>(); }
 		}
 
-
 		public string Version
 		{
 			get { return CurrentVersion.ToString(4); }
 		}
-
 
 		public void AddParent(ISolution solution)
 		{

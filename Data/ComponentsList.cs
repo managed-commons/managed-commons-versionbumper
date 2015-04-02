@@ -2,16 +2,49 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using NugetCracker.Interfaces;
-using NugetCracker.Components;
+using Commons.VersionBumper.Components;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Data
+namespace Commons.VersionBumper.Data
 {
 	public class ComponentsList : IComponentFinder, IEnumerable<IComponent>
 	{
-		List<IComponent> _list = new List<IComponent>();
-
 		public readonly List<ISolution> Solutions = new List<ISolution>();
+
+		public int Count { get { return _list.Count; } }
+
+		public void Clear()
+		{
+			_list.Clear();
+			Solutions.Clear();
+		}
+
+		public bool Contains(IComponent component)
+		{
+			return _list.Any(c => component.Equals(c));
+		}
+
+		public IEnumerable<IComponent> FilterBy(string pattern, bool orderByTreeDepth = false, bool groupByType = false, bool orphans = false)
+		{
+			var list = _list.FindAll(c => c.MatchName(pattern) && (!orphans || isOrphan(c)));
+			if (groupByType) {
+				if (orderByTreeDepth)
+					list.Sort((c1, c2) =>
+					{
+						var typeCompare = c1.Type.CompareTo(c2.Type);
+						return typeCompare != 0 ? typeCompare : (c2.DependentComponents.Count() - c1.DependentComponents.Count());
+					});
+				else
+					list.Sort((c1, c2) =>
+					{
+						var typeCompare = c1.Type.CompareTo(c2.Type);
+						return typeCompare != 0 ? typeCompare : (c1.Name.CompareTo(c2.Name));
+					});
+			} else
+				if (orderByTreeDepth)
+				list.Sort((c1, c2) => (c2.DependentComponents.Count() - c1.DependentComponents.Count()));
+			return list;
+		}
 
 		public T FindComponent<T>(string componentNamePattern, Func<T, bool> filter = null, bool interactive = true) where T : class
 		{
@@ -48,96 +81,6 @@ namespace NugetCracker.Data
 			return (T)null;
 		}
 
-		public void SortByName()
-		{
-			_list.Sort((c1, c2) => c1.Name.CompareTo(c2.Name));
-		}
-
-		public int Count { get { return _list.Count; } }
-
-		public IEnumerable<IComponent> FilterBy(string pattern, bool orderByTreeDepth = false, bool groupByType = false, bool orphans = false)
-		{
-			var list = _list.FindAll(c => c.MatchName(pattern) && (!orphans || isOrphan(c)));
-			if (groupByType) {
-				if (orderByTreeDepth)
-					list.Sort((c1, c2) =>
-					{
-						var typeCompare = c1.Type.CompareTo(c2.Type);
-						return typeCompare != 0 ? typeCompare : (c2.DependentComponents.Count() - c1.DependentComponents.Count());
-					});
-				else
-					list.Sort((c1, c2) =>
-					{
-						var typeCompare = c1.Type.CompareTo(c2.Type);
-						return typeCompare != 0 ? typeCompare : (c1.Name.CompareTo(c2.Name));
-					});
-			} else
-				if (orderByTreeDepth)
-				list.Sort((c1, c2) => (c2.DependentComponents.Count() - c1.DependentComponents.Count()));
-			return list;
-		}
-
-		private bool isOrphan(IComponent c)
-		{
-			var p = c as IProject;
-			return (p != null) && (p.Parents.Count() == 0);
-		}
-
-		public void Scan(string path, IEnumerable<IComponentsFactory> factories, Action<string> scanned)
-		{
-			try {
-				foreach (IComponentsFactory factory in factories)
-					_list.AddRange(factory.FindComponentsIn(path));
-				foreach (var dir in Directory.EnumerateDirectories(path))
-					Scan(dir, factories, scanned);
-				foreach (var solutionFullPath in Directory.EnumerateFiles(path, "*.sln"))
-					Solutions.Add(new Solution(solutionFullPath));
-				scanned(path);
-			} catch (Exception e) {
-				Console.Error.WriteLine(e);
-			}
-		}
-
-		private class LayeredDependencies : IEnumerable<IComponent>
-		{
-			List<List<IComponent>> lists;
-
-			public LayeredDependencies(IEnumerable<IComponent> initialList)
-			{
-				lists = new List<List<IComponent>>();
-				Divide(new List<IComponent>(initialList));
-			}
-
-			private void Divide(List<IComponent> initialList)
-			{
-				if (initialList.Count == 0)
-					return;
-				List<IComponent> itemsHere = new List<IComponent>();
-				List<IComponent> itemsAbove = new List<IComponent>();
-				foreach (var component in initialList)
-					if (initialList.Any(c => c.Dependencies.Any(r => r.Equals(component))))
-						itemsHere.Add(component);
-					else
-						itemsAbove.Add(component);
-				lists.Insert(0, itemsAbove);
-				Divide(itemsHere);
-			}
-
-
-			public IEnumerator<IComponent> GetEnumerator()
-			{
-				foreach (var list in lists)
-					foreach (var component in list)
-						yield return component;
-			}
-
-			System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-			{
-				return GetEnumerator();
-			}
-		}
-
-
 		public void FindDependents()
 		{
 			foreach (IComponent component in _list) {
@@ -155,11 +98,14 @@ namespace NugetCracker.Data
 			}
 		}
 
-		public void Prune(string path)
+		public IProject FindMatchingComponent(IFile project)
 		{
-			_list = new List<IComponent>(_list.FindAll(c => !c.FullPath.StartsWith(path)));
-			SortByName();
-			FindDependents();
+			return FindComponent<IProject>("^" + project.Name + "$", p => p.FullPath == project.FullPath, false);
+		}
+
+		public IEnumerator<IComponent> GetEnumerator()
+		{
+			return _list.GetEnumerator();
 		}
 
 		public void MatchSolutionsToProjects()
@@ -175,30 +121,82 @@ namespace NugetCracker.Data
 				}
 		}
 
-		public IProject FindMatchingComponent(IFile project)
+		public void Prune(string path)
 		{
-			return FindComponent<IProject>("^" + project.Name + "$", p => p.FullPath == project.FullPath, false);
+			_list = new List<IComponent>(_list.FindAll(c => !c.FullPath.StartsWith(path)));
+			SortByName();
+			FindDependents();
 		}
 
-		public void Clear()
+		public void Scan(string path, IEnumerable<IComponentsFactory> factories, Action<string> scanned)
 		{
-			_list.Clear();
-			Solutions.Clear();
+			try {
+				foreach (IComponentsFactory factory in factories)
+					_list.AddRange(factory.FindComponentsIn(path));
+				foreach (var dir in Directory.EnumerateDirectories(path))
+					Scan(dir, factories, scanned);
+				foreach (var solutionFullPath in Directory.EnumerateFiles(path, "*.sln"))
+					Solutions.Add(new Solution(solutionFullPath));
+				scanned(path);
+			} catch (Exception e) {
+				Console.Error.WriteLine(e);
+			}
 		}
 
-		public bool Contains(IComponent component)
+		public void SortByName()
 		{
-			return _list.Any(c => component.Equals(c));
+			_list.Sort((c1, c2) => c1.Name.CompareTo(c2.Name));
 		}
 
-		public IEnumerator<IComponent> GetEnumerator()
-		{
-			return _list.GetEnumerator();
-		}
+		private List<IComponent> _list = new List<IComponent>();
 
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
 		{
 			return _list.GetEnumerator();
+		}
+
+		private bool isOrphan(IComponent c)
+		{
+			var p = c as IProject;
+			return (p != null) && (p.Parents.Count() == 0);
+		}
+
+		private class LayeredDependencies : IEnumerable<IComponent>
+		{
+			public LayeredDependencies(IEnumerable<IComponent> initialList)
+			{
+				lists = new List<List<IComponent>>();
+				Divide(new List<IComponent>(initialList));
+			}
+
+			public IEnumerator<IComponent> GetEnumerator()
+			{
+				foreach (var list in lists)
+					foreach (var component in list)
+						yield return component;
+			}
+
+			private List<List<IComponent>> lists;
+
+			private void Divide(List<IComponent> initialList)
+			{
+				if (initialList.Count == 0)
+					return;
+				List<IComponent> itemsHere = new List<IComponent>();
+				List<IComponent> itemsAbove = new List<IComponent>();
+				foreach (var component in initialList)
+					if (initialList.Any(c => c.Dependencies.Any(r => r.Equals(component))))
+						itemsHere.Add(component);
+					else
+						itemsAbove.Add(component);
+				lists.Insert(0, itemsAbove);
+				Divide(itemsHere);
+			}
+
+			System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+			{
+				return GetEnumerator();
+			}
 		}
 	}
 }

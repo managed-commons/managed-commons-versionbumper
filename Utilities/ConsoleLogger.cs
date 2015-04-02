@@ -1,7 +1,7 @@
 ﻿using System;
-using NugetCracker.Interfaces;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Utilities
+namespace Commons.VersionBumper.Utilities
 {
 	public class ConsoleLogger : ILogger
 	{
@@ -14,13 +14,105 @@ namespace NugetCracker.Utilities
 			_indentLevel = 0;
 		}
 
+		public IDisposable Block { get { return new Indenter(this, false); } }
+
+		public bool IsDebugEnabled { get; private set; }
+
+		public bool IsInfoEnabled { get; private set; }
+
+		public bool IsWarnEnabled { get; private set; }
+
+		public IDisposable QuietBlock { get { return new Indenter(this, true); } }
+
+		public void Debug(Exception exception, string message = null)
+		{
+			LogDebug(() => FormatException(exception, message));
+		}
+
+		public void Debug(string format, params object[] args)
+		{
+			LogDebug(() => Format(format, args));
+		}
+
+		public void Error(Exception exception, string message = null)
+		{
+			LogError(() => FormatException(exception, message));
+		}
+
+		public void Error(string format, params object[] args)
+		{
+			LogError(() => Format(format, args));
+		}
+
+		public void ErrorDetail(string format, params object[] args)
+		{
+			Log(ConsoleColor.Yellow, "", () => Format(format, args));
+		}
+
+		public void Info(string format, params object[] args)
+		{
+			if (IsInfoEnabled)
+				Log(ConsoleColor.White, string.Empty, () => Format(format, args));
+		}
+
+		public void Warn(Exception exception, string message = null)
+		{
+			LogWarn(() => FormatException(exception, message));
+		}
+
+		public void Warn(string format, params object[] args)
+		{
+			LogWarn(() => Format(format, args));
+		}
+
+		private int _indentLevel;
+
+		private string _indentSpacer;
+
+		private static string Format(string format, params object[] args)
+		{
+			return args.Length == 0 ? format : string.Format(format, args);
+		}
+
+		private static string FormatException(Exception exception, string message)
+		{
+			return string.IsNullOrWhiteSpace(message) ? exception.ToString() : (message + Environment.NewLine + exception);
+		}
+
+		private void Log(ConsoleColor foregroundColor, string prefix, Func<string> emit)
+		{
+			try {
+				string message = emit();
+				if (string.IsNullOrWhiteSpace(message))
+					return;
+				Console.ForegroundColor = foregroundColor;
+				Console.Write(_indentSpacer);
+				Console.Write(prefix);
+				Console.WriteLine(message);
+			} finally {
+				Console.ResetColor();
+			}
+		}
+
+		private void LogDebug(Func<string> emit)
+		{
+			if (IsDebugEnabled)
+				Log(ConsoleColor.Gray, "DEBUG: ", emit);
+		}
+
+		private void LogError(Func<string> emit)
+		{
+			Log(ConsoleColor.Red, "ERRO: ", emit);
+		}
+
+		private void LogWarn(Func<string> emit)
+		{
+			if (IsDebugEnabled)
+				Log(ConsoleColor.Yellow, "WARN: ", emit);
+		}
+
 		private class Indenter : IDisposable
 		{
-			ConsoleLogger _parent;
-			bool _debug;
-			bool _info;
-			bool _warn;
-
 			public Indenter(ConsoleLogger parent, bool quiet)
 			{
 				_parent = parent;
@@ -43,103 +135,11 @@ namespace NugetCracker.Utilities
 				_parent.IsInfoEnabled = _info;
 				_parent.IsWarnEnabled = _warn;
 			}
-		}
 
-		private string _indentSpacer;
-		private int _indentLevel;
-
-		public IDisposable Block { get { return new Indenter(this, false); } }
-		public IDisposable QuietBlock { get { return new Indenter(this, true); } }
-
-		public bool IsDebugEnabled { get; private set; }
-
-		public bool IsInfoEnabled { get; private set; }
-
-		public bool IsWarnEnabled { get; private set; }
-
-		private void Log(ConsoleColor foregroundColor, string prefix, Func<string> emit)
-		{
-			try {
-				string message = emit();
-				if (string.IsNullOrWhiteSpace(message))
-					return;
-				Console.ForegroundColor = foregroundColor;
-				Console.Write(_indentSpacer);
-				Console.Write(prefix);
-				Console.WriteLine(message);
-			} finally {
-				Console.ResetColor();
-			}
-		}
-
-		private static string Format(string format, params object[] args)
-		{
-			return args.Length == 0 ? format : string.Format(format, args);
-		}
-
-		private static string FormatException(Exception exception, string message)
-		{
-			return string.IsNullOrWhiteSpace(message) ? exception.ToString() : (message + Environment.NewLine + exception);
-		}
-
-		private void LogDebug(Func<string> emit)
-		{
-			if (IsDebugEnabled)
-				Log(ConsoleColor.Gray, "DEBUG: ", emit);
-		}
-
-		public void Debug(Exception exception, string message = null)
-		{
-			LogDebug(() => FormatException(exception, message));
-		}
-
-		public void Debug(string format, params object[] args)
-		{
-			LogDebug(() => Format(format, args));
-		}
-
-		private void LogError(Func<string> emit)
-		{
-			Log(ConsoleColor.Red, "ERRO: ", emit);
-		}
-
-		public void Error(Exception exception, string message = null)
-		{
-			LogError(() => FormatException(exception, message));
-		}
-
-		public void Error(string format, params object[] args)
-		{
-			LogError(() => Format(format, args));
-		}
-
-		public void Info(string format, params object[] args)
-		{
-			if (IsInfoEnabled)
-				Log(ConsoleColor.White, string.Empty, () => Format(format, args));
-		}
-
-		private void LogWarn(Func<string> emit)
-		{
-			if (IsDebugEnabled)
-				Log(ConsoleColor.Yellow, "WARN: ", emit);
-		}
-
-		public void Warn(Exception exception, string message = null)
-		{
-			LogWarn(() => FormatException(exception, message));
-		}
-
-		public void Warn(string format, params object[] args)
-		{
-			LogWarn(() => Format(format, args));
-		}
-
-
-		public void ErrorDetail(string format, params object[] args)
-		{
-			Log(ConsoleColor.Yellow, "", () => Format(format, args));
+			private bool _debug;
+			private bool _info;
+			private ConsoleLogger _parent;
+			private bool _warn;
 		}
 	}
-
 }

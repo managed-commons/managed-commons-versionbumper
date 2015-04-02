@@ -1,8 +1,7 @@
 ﻿using System.IO;
 using System.Linq;
-using NugetCracker.Interfaces;
 
-namespace NugetCracker.Components.CSharp
+namespace Commons.VersionBumper.Components.CSharp
 {
 	public class CSharpWebsite : CSharpProject
 	{
@@ -16,6 +15,8 @@ namespace NugetCracker.Components.CSharp
 			_isWeb = true;
 		}
 
+		public override string Type { get { return "C# Web Site"; } }
+
 		protected override void ParseAvailableData()
 		{
 			if (!Directory.Exists(_projectDir))
@@ -25,9 +26,5 @@ namespace NugetCracker.Components.CSharp
 				app_code = _projectDir;
 			ParseAssemblyInfo(Directory.EnumerateFiles(app_code, "*.cs", SearchOption.AllDirectories));
 		}
-
-
-		public override string Type { get { return "C# Web Site"; } }
-
 	}
 }

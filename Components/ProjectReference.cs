@@ -1,8 +1,8 @@
 ﻿using System;
 using System.IO;
-using NugetCracker.Interfaces;
+using Commons.VersionBumper.Interfaces;
 
-namespace NugetCracker.Components
+namespace Commons.VersionBumper.Components
 {
 	public class ProjectReference : BasicReference
 	{
@@ -12,14 +12,16 @@ namespace NugetCracker.Components
 			FullPath = fullPath;
 		}
 
+		public string FullPath { get; private set; }
+
+		public override string Version
+		{
+			get { throw new NotImplementedException(); }
+		}
+
 		public bool Equals(IProject other)
 		{
 			return IsEqual(other);
-		}
-
-		private bool IsEqual(IProject other)
-		{
-			return other != null && FullPath.Equals(other.FullPath, StringComparison.OrdinalIgnoreCase);
 		}
 
 		public override bool Equals(object obj)
@@ -37,11 +39,9 @@ namespace NugetCracker.Components
 			return string.Format("Project Reference: {0}", FullPath);
 		}
 
-		public string FullPath { get; private set; }
-
-		public override string Version
+		private bool IsEqual(IProject other)
 		{
-			get { throw new NotImplementedException(); }
+			return other != null && FullPath.Equals(other.FullPath, StringComparison.OrdinalIgnoreCase);
 		}
 	}
 }
