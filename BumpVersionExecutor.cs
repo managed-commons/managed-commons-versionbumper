@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NugetCracker.Data;
 using NugetCracker.Interfaces;
@@ -28,17 +29,15 @@ namespace NugetCracker.Commands
 	-part:major|minor|build|revision		
 		Increments the major, minor, build, revision version number. 
 		If option is ommitted the default is to increment revision number.
-
-	-n[obuild]
 ";
 			}
 		}
 
-		public bool Process(ILogger logger, IEnumerable<string> args, ComponentsList components)
+		public bool Process(ILogger logger, IEnumerable<string> args, params IComponentsFactory[] factories)
 		{
-			bool foundOne = false;
+			ComponentsList components = Rescan(logger, factories);
+            bool foundOne = false;
 			var partToBump = ParsePartToBump(logger, args);
-			bool noBuild = args.Where(s => s.StartsWith("-n")).Count() > 0;
 			foreach (var componentNamePattern in args.Where(s => !s.StartsWith("-"))) {
 				foundOne = true;
 				var specificComponent = components.FindComponent<IVersionable>(componentNamePattern);
@@ -52,10 +51,29 @@ namespace NugetCracker.Commands
 			}
 			return true;
 		}
+		private static ComponentsList Rescan(ILogger logger, IComponentsFactory[] factories)
+		{
+			var components = new ComponentsList();
+			components.Clear();
+			int scannedDirsCount = 0;
+			string path = Path.GetFullPath(Directory.GetCurrentDirectory());
+			logger.Info("Scanning '{0}'", path);
+			components.Scan(path, factories, s => { logger.Debug(s); scannedDirsCount++; });
+			logger.Info("Scanned {0} directories", scannedDirsCount);
+			logger.Info("Found {0} component{1}", components.Count, components.Count > 1 ? "s" : "");
+			logger.Info("Found {0} solution{1}", components.Solutions.Count, components.Solutions.Count > 1 ? "s" : "");
+			logger.Info("Sorting...");
+			components.SortByName();
+			logger.Info("Finding dependents...");
+			components.FindDependents();
+			logger.Info("Matching solutions to projects...");
+			components.MatchSolutionsToProjects();
+			return components;
+		}
 
 		private static VersionPart ParsePartToBump(ILogger logger, IEnumerable<string> args)
 		{
-			var defaultPart = "revision";
+			var defaultPart = "build";
 			var part = args.ParseStringParameter("part", defaultPart);
 			var versionPart = TranslateToVersionPart(part);
 			if (versionPart != VersionPart.None)
@@ -82,7 +100,6 @@ namespace NugetCracker.Commands
 
 		private bool BumpVersion(ILogger logger, IVersionable component, VersionPart partToBump)
 		{
-			var componentsToRebuild = new List<IProject>();
 			logger.Info("Bumping versions. Affected version part: {0} number", partToBump);
 			using (logger.Block) {
 				if (!BumpUp(logger, component, partToBump))
@@ -90,9 +107,7 @@ namespace NugetCracker.Commands
 				foreach (IComponent dependentComponent in component.DependentComponents) {
 					if (dependentComponent is IVersionable) {
 						var versionableComponent = (IVersionable)dependentComponent;
-						if (BumpUp(logger, versionableComponent, versionableComponent.PartToCascadeBump(partToBump)))
-							if (dependentComponent is IProject)
-								componentsToRebuild.Add((IProject)dependentComponent);
+						BumpUp(logger, versionableComponent, versionableComponent.PartToCascadeBump(partToBump));
 					}
 				}
 			}
