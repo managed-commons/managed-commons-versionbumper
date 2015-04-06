@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 using System;
+using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Interfaces
 {
@@ -28,6 +29,6 @@ namespace Commons.VersionBumper.Interfaces
 	{
 		VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency);
 
-		bool SetNewVersion(ILogger log, Version version);
+		bool SetNewVersion(ILogger log, SemanticVersion version);
 	}
 }

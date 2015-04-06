@@ -25,6 +25,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using NuGet.Versioning;
 
 namespace Commons.VersionBumper
 {
@@ -33,28 +34,24 @@ namespace Commons.VersionBumper
 		None,
 		Major,
 		Minor,
-		Build,
-		Revision
+		Patch
 	}
 
 	public static class Extensions
 	{
-		public static Version Bump(this Version oldVersion, VersionPart partToBump)
+		public static SemanticVersion Bump(this SemanticVersion oldVersion, VersionPart partToBump)
 		{
 			switch (partToBump) {
 				case VersionPart.Major:
-					return new Version(oldVersion.Major + 1, 0, 0);
+					return new SemanticVersion(oldVersion.Major + 1, 0, 0);
 
 				case VersionPart.Minor:
-					return new Version(oldVersion.Major, oldVersion.Minor + 1, 0);
+					return new SemanticVersion(oldVersion.Major, oldVersion.Minor + 1, 0);
 
-				case VersionPart.Build:
-					return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build + 1);
-
-				case VersionPart.Revision:
-					return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build, oldVersion.Revision + 1);
+				case VersionPart.Patch:
+					return new SemanticVersion(oldVersion.Major, oldVersion.Minor, oldVersion.Patch + 1);
 			}
-			return new Version(oldVersion.Major, oldVersion.Minor, oldVersion.Build);
+			return new SemanticVersion(oldVersion.Major, oldVersion.Minor, oldVersion.Patch);
 		}
 
 		public static string Combine(this string path, string relativePath)
@@ -67,6 +64,23 @@ namespace Commons.VersionBumper
 		public static string FormatWith(this string format, params string[] args)
 		{
 			return string.Format(format, args);
+		}
+
+		public static string NormalizeVersion(this string version)
+		{
+			if (version.Contains('*'))
+				version = version.Replace('*', '0');
+			var parts = version.Split('-');
+			version = parts[0];
+			var periods = version.Count(c => c == '.');
+			if (periods > 2) {
+				version = version.Substring(0, version.LastIndexOf('.'));
+			}
+			if (periods < 2)
+				version += ".0";
+			if (parts.Length > 1)
+				version += "-" + parts[1];
+			return version;
 		}
 
 		public static string ParseStringParameter(this IEnumerable<string> args, string paramName, string @default = null)
@@ -87,14 +101,19 @@ namespace Commons.VersionBumper
 			return text;
 		}
 
-		public static void SetVersion(this string versionFile, Version version)
+		public static void SetVersion(this string versionFile, SemanticVersion version)
 		{
 			string pattern = "(Assembly(File|))(Version\\(\")([^\"]*)(\"\\s*\\))";
-			string replace = "$1Version(\"" + version + "$5";
+			string replace = "$1Version(\"" + version.ShortVersion() + "$5";
 			versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
 			pattern = "(AssemblyInformational)(Version\\(\")([^\"]*)(\"\\s*\\))";
-			replace = "$1Version(\"" + version.ToString(3) + "$4";
+			replace = "$1Version(\"" + version.ToNormalizedString() + "$4";
 			versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
+		}
+
+		public static string ShortVersion(this SemanticVersion version)
+		{
+			return version.ToNormalizedString().Split('-')[0];
 		}
 
 		public static void TransformFile(this string filename, Func<string, string> transformer)

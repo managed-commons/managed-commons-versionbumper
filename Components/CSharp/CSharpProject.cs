@@ -28,6 +28,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Commons.VersionBumper.Interfaces;
+using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Components.CSharp
 {
@@ -54,12 +55,12 @@ namespace Commons.VersionBumper.Components.CSharp
 			_projectDir = Path.GetDirectoryName(FullPath);
 			_isWeb = false;
 			Name = GetProjectName(projectFileFullPath);
-			CurrentVersion = new Version("1.0.0.0");
+			CurrentVersion = new SemanticVersion(1, 0, 0);
 			Description = string.Empty;
 			ParseAvailableData();
 		}
 
-		public Version CurrentVersion { get; private set; }
+		public SemanticVersion CurrentVersion { get; private set; }
 
 		public IEnumerable<IReference> Dependencies
 		{
@@ -124,7 +125,7 @@ namespace Commons.VersionBumper.Components.CSharp
 
 		public VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency)
 		{
-			return _usesNUnit || (ComponentType == "Library" && !_isWeb) ? partBumpedOnDependency : VersionPart.Build;
+			return _usesNUnit || (ComponentType == "Library" && !_isWeb) ? partBumpedOnDependency : VersionPart.Patch;
 		}
 
 		public void RemoveParent(ISolution solution)
@@ -133,7 +134,7 @@ namespace Commons.VersionBumper.Components.CSharp
 				_parents.Remove(solution);
 		}
 
-		public bool SetNewVersion(ILogger logger, Version version)
+		public bool SetNewVersion(ILogger logger, SemanticVersion version)
 		{
 			if (version == CurrentVersion)
 				return true;
@@ -200,7 +201,7 @@ namespace Commons.VersionBumper.Components.CSharp
 
 		private string ComponentType { get; set; }
 
-		private string CurrentVersionTag { get { return string.Format(_isWeb ? " ({0})" : ".{0}", CurrentVersion.ToString(3)); } }
+		private string CurrentVersionTag { get { return string.Format(_isWeb ? " ({0})" : ".{0}", CurrentVersion.ToString()); } }
 
 		private static string TranslateType(bool usesNUnit, string targetType)
 		{
@@ -211,7 +212,7 @@ namespace Commons.VersionBumper.Components.CSharp
 			}
 		}
 
-		private bool AssemblyInfoSetNewVersion(ILogger logger, Version version)
+		private bool AssemblyInfoSetNewVersion(ILogger logger, SemanticVersion version)
 		{
 			if (!File.Exists(_assemblyInfoPath)) {
 				logger.Error("There's no file to keep the version information in this component.");
@@ -275,29 +276,30 @@ namespace Commons.VersionBumper.Components.CSharp
 			return other != null && other is IProject && FullPath == ((IProject)other).FullPath;
 		}
 
+		private bool MatchVersionPattern(string info, string pattern)
+		{
+			var match = Regex.Match(info, pattern, RegexOptions.Multiline);
+			if (match.Success) {
+				try {
+					string version = match.Groups[1].Value;
+					version = version.NormalizeVersion();
+					CurrentVersion = SemanticVersion.Parse(version);
+				} catch {
+					return false;
+				}
+				return true;
+			}
+			return false;
+		}
+
 		private bool ParseAssemblyInfoFile(string sourcePath)
 		{
 			bool found = false;
 			if (File.Exists(sourcePath)) {
 				try {
 					string info = File.ReadAllText(sourcePath);
-					string pattern = "AssemblyVersion\\(\"([^\"]*)\"\\)";
-					var match = Regex.Match(info, pattern, RegexOptions.Multiline);
-					if (match.Success) {
-						try {
-							string version = match.Groups[1].Value;
-							if (version.Contains('*'))
-								version = version.Replace('*', '0');
-							if (version.Count(c => c == '.') < 3)
-								version = version + ".0";
-							CurrentVersion = new Version(version);
-						} catch {
-							return false;
-						}
-						found = true;
-					}
-					pattern = "AssemblyDescription\\(\"([^\"]+)\"\\)";
-					match = Regex.Match(info, pattern, RegexOptions.Multiline);
+					found = MatchVersionPattern(info, "AssemblyInformationalVersion\\(\"([^\"]*)\"\\)") || MatchVersionPattern(info, "AssemblyVersion\\(\"([^\"]*)\"\\)");
+					Match match = Regex.Match(info, "AssemblyDescription\\(\"([^\"]+)\"\\)", RegexOptions.Multiline);
 					if (match.Success)
 						Description = match.Groups[1].Value;
 				} catch (Exception e) {
@@ -315,7 +317,7 @@ namespace Commons.VersionBumper.Components.CSharp
 			_usesVersionProperty = !string.IsNullOrWhiteSpace(appVersion) && !appVersion.Contains('%');
 			if (_usesVersionProperty) {
 				_versionPropertyPath = appVersionProperty.FilePath;
-				CurrentVersion = new Version(appVersion);
+				CurrentVersion = SemanticVersion.Parse(appVersion.NormalizeVersion());
 				Description = ExtractProjectProperty(FullPath, "ApplicationDescription").Value;
 			} else
 				ParseAssemblyInfo(GetListOfSources(project));
@@ -337,13 +339,13 @@ namespace Commons.VersionBumper.Components.CSharp
 			}
 		}
 
-		private bool VersionPropertySetNewVersion(ILogger logger, Version version)
+		private bool VersionPropertySetNewVersion(ILogger logger, SemanticVersion version)
 		{
 			XDocument project = XDocument.Load(_versionPropertyPath);
 			var element = project.Descendants(_nm + "ApplicationVersion").FirstOrDefault();
 			if (element == null)
 				return false;
-			element.Value = version.ToString(3);
+			element.Value = version.ShortVersion();
 			project.Save(_versionPropertyPath);
 			CurrentVersion = version;
 			return true;

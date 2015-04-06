@@ -26,6 +26,7 @@ using System.IO;
 using System.Linq;
 using Commons.VersionBumper.Data;
 using Commons.VersionBumper.Interfaces;
+using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Commands
 {
@@ -37,7 +38,7 @@ namespace Commons.VersionBumper.Commands
 			{
 				return @"B[umpVersion] [options] pattern [pattern] ...
 
-	Bumps up the [AssemblyVersion]/Package Version of the components and rebuilds/repackages.
+	Bumps up the [AssemblyVersion]/Package SemanticVersion of the components and rebuilds/repackages.
 	The [AssemblyFileVersion] attribute also is kept in sync with the [AssemblyVersion].
 
 	Update all dependent components to use the new build/package, also bumping up their
@@ -77,8 +78,8 @@ namespace Commons.VersionBumper.Commands
 		private static bool BumpUp(ILogger logger, IVersionable component, VersionPart partToBump)
 		{
 			var componentName = component.Name;
-			Version currentVersion = component.CurrentVersion.Bump(VersionPart.None);
-			Version newVersion = currentVersion.Bump(partToBump);
+			SemanticVersion currentVersion = component.CurrentVersion.Bump(VersionPart.None);
+			SemanticVersion newVersion = currentVersion.Bump(partToBump);
 			if (component.SetNewVersion(logger, newVersion)) {
 				logger.Info("Bumped component '{0}' version from {1} to {2}", componentName, currentVersion.ToString(), newVersion.ToString());
 				return true;
@@ -127,11 +128,9 @@ namespace Commons.VersionBumper.Commands
 				case "minor":
 					return VersionPart.Minor;
 
+				case "patch":
 				case "build":
-					return VersionPart.Build;
-
-				case "revision":
-					return VersionPart.Revision;
+					return VersionPart.Patch;
 
 				default:
 					return VersionPart.None;

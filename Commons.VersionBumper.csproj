@@ -37,6 +37,10 @@
     <Reference Include="Commons.Core">
       <HintPath>packages\Commons.Core.1.0.0\lib\net45\Commons.Core.dll</HintPath>
     </Reference>
+    <Reference Include="NuGet.Versioning, Version=1.0.7.0, Culture=neutral, PublicKeyToken=2e465378e3b1a8dd, processorArchitecture=MSIL">
+      <HintPath>packages\NuGet.Versioning.1.0.7\lib\portable-net40+win\NuGet.Versioning.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />

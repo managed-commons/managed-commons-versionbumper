@@ -22,12 +22,13 @@
 
 using System;
 using System.Collections.Generic;
+using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Interfaces
 {
 	public interface IComponent : IReference
 	{
-		Version CurrentVersion { get; }
+		SemanticVersion CurrentVersion { get; }
 
 		IEnumerable<IReference> Dependencies { get; }
 
