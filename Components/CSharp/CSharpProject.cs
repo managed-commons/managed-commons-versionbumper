@@ -32,323 +32,362 @@ using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Components.CSharp
 {
-	public class CSharpProject : IProject
-	{
-		public class ProjectProperty
-		{
-			public ProjectProperty(string filePath, string value)
-			{
-				FilePath = filePath;
-				Value = value;
-			}
+    public class CSharpProject : IProject
+    {
+        protected bool _isWeb;
 
-			public string FilePath { get; private set; }
+        protected string _projectDir;
 
-			public bool Ok { get { return !string.IsNullOrWhiteSpace(Value); } }
+        private readonly List<IReference> _dependencies = new List<IReference>();
 
-			public string Value { get; private set; }
-		}
+        private readonly XNamespace _nm = XNamespace.Get("http://schemas.microsoft.com/developer/msbuild/2003");
 
-		public CSharpProject(string projectFileFullPath)
-		{
-			FullPath = projectFileFullPath;
-			_projectDir = Path.GetDirectoryName(FullPath);
-			_isWeb = false;
-			Name = GetProjectName(projectFileFullPath);
-			CurrentVersion = new SemanticVersion(1, 0, 0);
-			Description = string.Empty;
-			ParseAvailableData();
-		}
+        private readonly List<ISolution> _parents = new List<ISolution>();
 
-		public SemanticVersion CurrentVersion { get; private set; }
+        private string _assemblyInfoPath;
 
-		public IEnumerable<IReference> Dependencies
-		{
-			get { return _dependencies; }
-		}
+        private string _assemblyName;
 
-		public IEnumerable<IComponent> DependentComponents { get; set; }
+        private List<string> _missingFiles = new List<string>();
 
-		public IEnumerable<IProject> DependentProjects
-		{
-			get { return DependentComponents.Where(c => c is IProject).Cast<IProject>(); }
-		}
+        private string _status;
 
-		public string Description { get; private set; }
+        private bool _usesNUnit;
 
-		public string FullPath { get; private set; }
+        private bool _usesVersionProperty;
 
-		public string Name { get; protected set; }
+        private string _versionPropertyPath;
 
-		public string OwningStatus
-		{
-			get
-			{
-				if (_parents.Count == 0)
-					return "Orphan!";
-				if (_parents.Count > 1)
-					return "MultiOwned!";
-				return _parents[0].Name;
-			}
-		}
+        public CSharpProject(string projectFileFullPath)
+        {
+            FullPath = projectFileFullPath;
+            _projectDir = Path.GetDirectoryName(FullPath);
+            _isWeb = false;
+            Name = GetProjectName(projectFileFullPath);
+            CurrentVersion = new SemanticVersion(1, 0, 0);
+            Description = string.Empty;
+            ParseAvailableData();
+        }
 
-		public IEnumerable<ISolution> Parents { get { return _parents; } }
+        public SemanticVersion CurrentVersion { get; private set; }
 
-		public virtual string Type { get { return _isWeb ? "C# Web Project" : ("C# {0} Project".FormatWith(ComponentType)); } }
+        public IEnumerable<IReference> Dependencies { get { return _dependencies; } }
 
-		public void AddParent(ISolution solution)
-		{
-			if (!_parents.Contains(solution))
-				_parents.Add(solution);
-		}
+        public IEnumerable<IComponent> DependentComponents { get; set; }
 
-		public bool Equals(IReference other)
-		{
-			return IsEqual(other);
-		}
+        public IEnumerable<IVersionable> DependentVersionableComponents { get { return DependentComponents.As<IVersionable>(); } }
 
-		public override bool Equals(object obj)
-		{
-			return IsEqual(obj as IReference);
-		}
+        public string Description { get; private set; }
 
-		public override int GetHashCode()
-		{
-			return FullPath.GetHashCode();
-		}
+        public string FullPath { get; private set; }
 
-		public bool MatchName(string pattern)
-		{
-			return string.IsNullOrWhiteSpace(pattern) || Regex.IsMatch(Name, pattern,
-				RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
-		}
+        public bool HasMissingFiles { get { return _missingFiles != null && _missingFiles.Count > 0; } }
 
-		public VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency)
-		{
-			return _usesNUnit || (ComponentType == "Library" && !_isWeb) ? partBumpedOnDependency : VersionPart.Patch;
-		}
+        public IEnumerable<string> MissingFiles { get { return _missingFiles.OrderBy(s => s); } }
 
-		public void RemoveParent(ISolution solution)
-		{
-			if (_parents.Contains(solution))
-				_parents.Remove(solution);
-		}
+        public string Name { get; protected set; }
 
-		public bool SetNewVersion(ILogger logger, SemanticVersion version)
-		{
-			if (version == CurrentVersion)
-				return true;
-			try {
-				if (_usesVersionProperty)
-					return VersionPropertySetNewVersion(logger, version);
-				return AssemblyInfoSetNewVersion(logger, version);
-			} catch (Exception e) {
-				logger.Error(e);
-				return false;
-			}
-		}
+        public string OwningStatus
+        {
+            get
+            {
+                if (_parents.Count == 0)
+                    return "Orphan!";
+                if (_parents.Count > 1)
+                    return "MultiOwned!";
+                return _parents[0].Name;
+            }
+        }
 
-		public string ToLongString()
-		{
-			var sb = new StringBuilder();
-			sb.AppendFormat("{0}{1} [{3}]\n  from '{2}'\n  dependencies:\n", Name, CurrentVersionTag, FullPath, Type);
-			foreach (var dep in _dependencies)
-				sb.AppendFormat("    {0}\n", dep);
-			sb.AppendFormat("  needed by\n");
-			foreach (var dep in DependentComponents)
-				sb.AppendFormat("    {0}\n", dep);
-			return sb.ToString();
-		}
+        public IEnumerable<ISolution> Parents { get { return _parents; } }
 
-		public override string ToString()
-		{
-			return string.Format("{0}{1} - {2} ({5}) [{3}] {4}", Name, CurrentVersionTag, Description, Type, _status, OwningStatus);
-		}
+        public virtual string Type { get { return _isWeb ? "C# Web Project" : ("C# {0} Project".FormatWith(ComponentType)); } }
 
-		protected bool _isWeb;
-		protected string _projectDir;
+        private string ComponentType { get; set; }
 
-		protected virtual string GetProjectName(string projectFileFullPath)
-		{
-			return Path.GetFileNameWithoutExtension(projectFileFullPath);
-		}
+        private string CurrentVersionTag { get { return string.Format(_isWeb ? " ({0})" : ".{0}", CurrentVersion.ToString()); } }
 
-		protected void ParseAssemblyInfo(IEnumerable<string> sourceFilesList)
-		{
-			foreach (var sourcePath in sourceFilesList)
-				if (ParseAssemblyInfoFile(sourcePath)) {
-					_assemblyInfoPath = sourcePath;
-					return;
-				}
-		}
+        public void AddParent(ISolution solution)
+        {
+            if (!_parents.Contains(solution))
+                _parents.Add(solution);
+        }
 
-		protected virtual void ParseAvailableData()
-		{
-			_dependencies.Clear();
-			ParseProjectFile();
-			_dependencies.Sort((c1, c2) => c1.Name.CompareTo(c2.Name));
-		}
+        public bool Equals(IReference other)
+        {
+            return IsEqual(other);
+        }
 
-		private readonly List<IReference> _dependencies = new List<IReference>();
-		private readonly XNamespace _nm = XNamespace.Get("http://schemas.microsoft.com/developer/msbuild/2003");
-		private readonly List<ISolution> _parents = new List<ISolution>();
-		private string _assemblyInfoPath;
-		private string _assemblyName;
-		private string _status;
-		private bool _usesNUnit;
-		private bool _usesVersionProperty;
-		private string _versionPropertyPath;
+        public override bool Equals(object obj)
+        {
+            return IsEqual(obj as IReference);
+        }
 
-		private string ComponentType { get; set; }
+        public override int GetHashCode()
+        {
+            return FullPath.GetHashCode();
+        }
 
-		private string CurrentVersionTag { get { return string.Format(_isWeb ? " ({0})" : ".{0}", CurrentVersion.ToString()); } }
+        public bool MatchName(string pattern)
+        {
+            return string.IsNullOrWhiteSpace(pattern) || Regex.IsMatch(Name, pattern,
+                RegexOptions.IgnoreCase | RegexOptions.IgnorePatternWhitespace);
+        }
 
-		private static string TranslateType(bool usesNUnit, string targetType)
-		{
-			switch (targetType.ToLowerInvariant()) {
-				case "exe": return "Console Application";
-				case "winexe": return "Desktop Application";
-				default: return targetType;
-			}
-		}
+        public VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency)
+        {
+            return _usesNUnit || (ComponentType == "Library" && !_isWeb) ? partBumpedOnDependency : VersionPart.Patch;
+        }
 
-		private bool AssemblyInfoSetNewVersion(ILogger logger, SemanticVersion version)
-		{
-			if (!File.Exists(_assemblyInfoPath)) {
-				logger.Error("There's no file to keep the version information in this component.");
-				return false;
-			}
-			_assemblyInfoPath.SetVersion(version);
-			CurrentVersion = version;
-			return true;
-		}
+        public void RemoveParent(ISolution solution)
+        {
+            if (_parents.Contains(solution))
+                _parents.Remove(solution);
+        }
 
-		private ProjectProperty ExtractProjectProperty(string filePath, string tagName, string @default = null)
-		{
-			if (File.Exists(filePath)) {
-				XDocument project = XDocument.Load(filePath);
-				var element = project.Descendants(_nm + tagName).FirstOrDefault();
-				if (element != null)
-					return new ProjectProperty(filePath, element.Value);
-				foreach (var import in project.Descendants(_nm + "Import")) {
-					var importedProject = import.Attribute("Project");
-					if (importedProject != null) {
-						string path = importedProject.Value;
-						if (!(string.IsNullOrWhiteSpace(path) || path.Contains('$') || path.ToLower().EndsWith(".targets"))) {
-							path = Path.Combine(Path.GetDirectoryName(filePath), path);
-							var value = ExtractProjectProperty(path, tagName);
-							if (value.Ok)
-								return value;
-						}
-					}
-				}
-			}
-			return new ProjectProperty(filePath, @default);
-		}
+        public bool SetNewVersion(ILogger logger, SemanticVersion version)
+        {
+            if (version == CurrentVersion)
+                return true;
+            try
+            {
+                if (_usesVersionProperty)
+                    return VersionPropertySetNewVersion(logger, version);
+                return AssemblyInfoSetNewVersion(logger, version);
+            }
+            catch (Exception e)
+            {
+                logger.Error(e);
+                return false;
+            }
+        }
 
-		private IEnumerable<string> GetListForTag(XDocument project, string tagName)
-		{
-			foreach (XElement source in project.Descendants(_nm + tagName)) {
-				var sourcePath = source.Attribute("Include").Value;
-				if (!string.IsNullOrWhiteSpace(sourcePath))
-					yield return Path.GetFullPath(_projectDir.Combine(sourcePath));
-			}
-		}
+        public string ToLongString()
+        {
+            var sb = new StringBuilder();
+            sb.AppendFormat("{0}{1} [{3}]\n  from '{2}'\n  dependencies:\n", Name, CurrentVersionTag, FullPath, Type);
+            foreach (var dep in _dependencies)
+                sb.AppendFormat("    {0}\n", dep);
+            sb.AppendFormat("  needed by\n");
+            foreach (var dep in DependentComponents)
+                sb.AppendFormat("    {0}\n", dep);
+            return sb.ToString();
+        }
 
-		private IEnumerable<string> GetListOfReferencedLibraries(XDocument project)
-		{
-			foreach (XElement reference in project.Descendants(_nm + "Reference"))
-				yield return reference.Attribute("Include").Value.Split(',')[0];
-		}
+        public override string ToString()
+        {
+            return string.Format("{0}{1} - {2} ({5}) [{3}] {4} @ {6}", Name, CurrentVersionTag, Description, Type, _status, OwningStatus, FullPath);
+        }
 
-		private IEnumerable<string> GetListOfReferencedProjects(XDocument project)
-		{
-			return GetListForTag(project, "ProjectReference");
-		}
+        protected virtual string GetProjectName(string projectFileFullPath)
+        {
+            return Path.GetFileNameWithoutExtension(projectFileFullPath);
+        }
 
-		private IEnumerable<string> GetListOfSources(XDocument project)
-		{
-			return GetListForTag(project, "Compile");
-		}
+        protected void ParseAssemblyInfo(IEnumerable<string> sourceFilesList)
+        {
+            foreach (var sourcePath in sourceFilesList)
+                if (ParseAssemblyInfoFile(sourcePath))
+                {
+                    _assemblyInfoPath = sourcePath;
+                    return;
+                }
+        }
 
-		private bool IsEqual(IReference other)
-		{
-			return other != null && other is IProject && FullPath == ((IProject)other).FullPath;
-		}
+        protected virtual void ParseAvailableData()
+        {
+            _dependencies.Clear();
+            ParseProjectFile();
+            _dependencies.Sort((c1, c2) => c1.Name.CompareTo(c2.Name));
+        }
 
-		private bool MatchVersionPattern(string info, string pattern)
-		{
-			var match = Regex.Match(info, pattern, RegexOptions.Multiline);
-			if (match.Success) {
-				try {
-					string version = match.Groups[1].Value;
-					version = version.NormalizeVersion();
-					CurrentVersion = SemanticVersion.Parse(version);
-				} catch {
-					return false;
-				}
-				return true;
-			}
-			return false;
-		}
+        private static string TranslateType(bool usesNUnit, string targetType)
+        {
+            switch (targetType.ToLowerInvariant())
+            {
+                case "exe": return "Console Application";
+                case "winexe": return "Desktop Application";
+                default: return targetType;
+            }
+        }
 
-		private bool ParseAssemblyInfoFile(string sourcePath)
-		{
-			bool found = false;
-			if (File.Exists(sourcePath)) {
-				try {
-					string info = File.ReadAllText(sourcePath);
-					found = MatchVersionPattern(info, "AssemblyInformationalVersion\\(\"([^\"]*)\"\\)") || MatchVersionPattern(info, "AssemblyVersion\\(\"([^\"]*)\"\\)");
-					Match match = Regex.Match(info, "AssemblyDescription\\(\"([^\"]+)\"\\)", RegexOptions.Multiline);
-					if (match.Success)
-						Description = match.Groups[1].Value;
-				} catch (Exception e) {
-					Console.Error.WriteLine("Could not read file '{0}'. Cause: {1}", sourcePath, e.Message);
-				}
-			} else
-				Console.Error.WriteLine("\nMissing file: {0}", sourcePath);
-			return found;
-		}
+        private void AddMissingFile(string path)
+        {
+            _missingFiles.Add(path.RelativeTo(_projectDir));
+        }
 
-		private void ParseCurrentVersion(XDocument project)
-		{
-			var appVersionProperty = ExtractProjectProperty(FullPath, "ApplicationVersion");
-			var appVersion = appVersionProperty.Value;
-			_usesVersionProperty = !string.IsNullOrWhiteSpace(appVersion) && !appVersion.Contains('%');
-			if (_usesVersionProperty) {
-				_versionPropertyPath = appVersionProperty.FilePath;
-				CurrentVersion = SemanticVersion.Parse(appVersion.NormalizeVersion());
-				Description = ExtractProjectProperty(FullPath, "ApplicationDescription").Value;
-			} else
-				ParseAssemblyInfo(GetListOfSources(project));
-		}
+        private bool AssemblyInfoSetNewVersion(ILogger logger, SemanticVersion version)
+        {
+            if (!File.Exists(_assemblyInfoPath))
+            {
+                logger.Error("There's no file to keep the version information in this component.");
+                return false;
+            }
+            _assemblyInfoPath.SetVersion(version);
+            CurrentVersion = version;
+            return true;
+        }
 
-		private void ParseProjectFile()
-		{
-			try {
-				XDocument project = XDocument.Load(FullPath);
-				ParseCurrentVersion(project);
-				_isWeb = (project.Descendants(_nm + "WebProjectProperties").Count() > 0);
-				_assemblyName = ExtractProjectProperty(FullPath, "AssemblyName", Name).Value;
-				_usesNUnit = GetListOfReferencedLibraries(project).Any(s => s.Equals("nunit.framework", StringComparison.OrdinalIgnoreCase));
-				ComponentType = TranslateType(_usesNUnit, ExtractProjectProperty(FullPath, "OutputType", "Library").Value);
-				foreach (var projectReference in GetListOfReferencedProjects(project))
-					_dependencies.Add(new ProjectReference(projectReference));
-			} catch (Exception e) {
-				_status = "Error while loading: " + e.Message;
-			}
-		}
+        private ProjectProperty ExtractProjectProperty(string filePath, string tagName, string @default = null)
+        {
+            if (File.Exists(filePath))
+            {
+                XDocument project = XDocument.Load(filePath);
+                var element = project.Descendants(_nm + tagName).FirstOrDefault();
+                if (element != null)
+                    return new ProjectProperty(filePath, element.Value);
+                foreach (var import in project.Descendants(_nm + "Import"))
+                {
+                    var importedProject = import.Attribute("Project");
+                    if (importedProject != null)
+                    {
+                        string path = importedProject.Value;
+                        if (!(string.IsNullOrWhiteSpace(path) || path.Contains('$') || path.ToLower().EndsWith(".targets")))
+                        {
+                            path = Path.Combine(Path.GetDirectoryName(filePath), path);
+                            var value = ExtractProjectProperty(path, tagName);
+                            if (value.Ok)
+                                return value;
+                        }
+                    }
+                }
+            }
+            return new ProjectProperty(filePath, @default);
+        }
 
-		private bool VersionPropertySetNewVersion(ILogger logger, SemanticVersion version)
-		{
-			XDocument project = XDocument.Load(_versionPropertyPath);
-			var element = project.Descendants(_nm + "ApplicationVersion").FirstOrDefault();
-			if (element == null)
-				return false;
-			element.Value = version.ShortVersion();
-			project.Save(_versionPropertyPath);
-			CurrentVersion = version;
-			return true;
-		}
-	}
+        private IEnumerable<string> GetListForTag(XDocument project, string tagName)
+        {
+            foreach (XElement source in project.Descendants(_nm + tagName))
+            {
+                var sourcePath = source.Attribute("Include").Value;
+                if (!string.IsNullOrWhiteSpace(sourcePath))
+                    yield return Path.GetFullPath(_projectDir.Combine(sourcePath));
+            }
+        }
+
+        private IEnumerable<string> GetListOfReferencedLibraries(XDocument project)
+        {
+            foreach (XElement reference in project.Descendants(_nm + "Reference"))
+                yield return reference.Attribute("Include").Value.Split(',')[0];
+        }
+
+        private IEnumerable<string> GetListOfReferencedProjects(XDocument project)
+        {
+            return GetListForTag(project, "ProjectReference");
+        }
+
+        private IEnumerable<string> GetListOfSources(XDocument project)
+        {
+            return GetListForTag(project, "Compile");
+        }
+
+        private bool IsEqual(IReference other)
+        {
+            return other != null && other is IProject && FullPath == ((IProject)other).FullPath;
+        }
+
+        private bool MatchVersionPattern(string info, string pattern)
+        {
+            var match = Regex.Match(info, pattern, RegexOptions.Multiline);
+            if (match.Success)
+            {
+                try
+                {
+                    string version = match.Groups[1].Value;
+                    version = version.NormalizeVersion();
+                    CurrentVersion = SemanticVersion.Parse(version);
+                }
+                catch
+                {
+                    return false;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        private bool ParseAssemblyInfoFile(string sourcePath)
+        {
+            bool found = false;
+            if (File.Exists(sourcePath))
+            {
+                try
+                {
+                    string info = File.ReadAllText(sourcePath);
+                    found = MatchVersionPattern(info, "AssemblyInformationalVersion\\(\"([^\"]*)\"\\)") || MatchVersionPattern(info, "AssemblyVersion\\(\"([^\"]*)\"\\)");
+                    Match match = Regex.Match(info, "AssemblyDescription\\(\"([^\"]+)\"\\)", RegexOptions.Multiline);
+                    if (match.Success)
+                        Description = match.Groups[1].Value;
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine("Could not read file '{0}'. Cause: {1}", sourcePath, e.Message);
+                }
+            }
+            else
+                AddMissingFile(sourcePath);
+            return found;
+        }
+
+        private void ParseCurrentVersion(XDocument project)
+        {
+            var appVersionProperty = ExtractProjectProperty(FullPath, "ApplicationVersion");
+            var appVersion = appVersionProperty.Value;
+            _usesVersionProperty = !string.IsNullOrWhiteSpace(appVersion) && !appVersion.Contains('%');
+            if (_usesVersionProperty)
+            {
+                _versionPropertyPath = appVersionProperty.FilePath;
+                CurrentVersion = SemanticVersion.Parse(appVersion.NormalizeVersion());
+                Description = ExtractProjectProperty(FullPath, "ApplicationDescription").Value;
+            }
+            else
+                ParseAssemblyInfo(GetListOfSources(project));
+        }
+
+        private void ParseProjectFile()
+        {
+            try
+            {
+                XDocument project = XDocument.Load(FullPath);
+                ParseCurrentVersion(project);
+                _isWeb = (project.Descendants(_nm + "WebProjectProperties").Count() > 0);
+                _assemblyName = ExtractProjectProperty(FullPath, "AssemblyName", Name).Value;
+                _usesNUnit = GetListOfReferencedLibraries(project).Any(s => s.Equals("nunit.framework", StringComparison.OrdinalIgnoreCase));
+                ComponentType = TranslateType(_usesNUnit, ExtractProjectProperty(FullPath, "OutputType", "Library").Value);
+                foreach (var projectReference in GetListOfReferencedProjects(project))
+                    _dependencies.Add(new ProjectReference(projectReference));
+            }
+            catch (Exception e)
+            {
+                _status = "Error while loading: " + e.Message;
+            }
+        }
+
+        private bool VersionPropertySetNewVersion(ILogger logger, SemanticVersion version)
+        {
+            XDocument project = XDocument.Load(_versionPropertyPath);
+            var element = project.Descendants(_nm + "ApplicationVersion").FirstOrDefault();
+            if (element == null)
+                return false;
+            element.Value = version.ShortVersion();
+            project.Save(_versionPropertyPath);
+            CurrentVersion = version;
+            return true;
+        }
+
+        public class ProjectProperty
+        {
+            public ProjectProperty(string filePath, string value)
+            {
+                FilePath = filePath;
+                Value = value;
+            }
+
+            public string FilePath { get; private set; }
+
+            public bool Ok { get { return !string.IsNullOrWhiteSpace(Value); } }
+
+            public string Value { get; private set; }
+        }
+    }
 }

@@ -25,14 +25,20 @@ using System.Collections.Generic;
 
 namespace Commons.VersionBumper.Interfaces
 {
-	public interface ISolution : IEquatable<ISolution>
-	{
-		string FullPath { get; }
+    public interface ISolution : IEquatable<ISolution>
+    {
+        string FullPath { get; }
 
-		string Name { get; }
+        bool HasMissingProjects { get; }
 
-		IEnumerable<IFile> Projects { get; }
+        string Name { get; }
 
-		bool MatchName(string pattern);
-	}
+        IEnumerable<IFile> Projects { get; }
+
+        void AddMissingProject(IFile project, IEnumerable<IProject> enumerable);
+
+        void DumpMissingProjects(ILogger logger);
+
+        bool MatchName(string pattern);
+    }
 }

@@ -26,24 +26,22 @@ using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Interfaces
 {
-	public interface IComponent : IReference
-	{
-		SemanticVersion CurrentVersion { get; }
+    public interface IComponent : IReference
+    {
+        SemanticVersion CurrentVersion { get; }
 
-		IEnumerable<IReference> Dependencies { get; }
+        IEnumerable<IReference> Dependencies { get; }
 
-		IEnumerable<IComponent> DependentComponents { get; set; }
+        IEnumerable<IComponent> DependentComponents { get; set; }
 
-		IEnumerable<IProject> DependentProjects { get; }
+        string Description { get; }
 
-		string Description { get; }
+        string FullPath { get; }
 
-		string FullPath { get; }
+        string Type { get; }
 
-		string Type { get; }
+        bool MatchName(string pattern);
 
-		bool MatchName(string pattern);
-
-		string ToLongString();
-	}
+        string ToLongString();
+    }
 }

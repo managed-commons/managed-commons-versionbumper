@@ -25,7 +25,7 @@ using System.Runtime.InteropServices;
 using Commons;
 
 [assembly: AssemblyTitle("Commons.VersionBumper")]
-[assembly: AssemblyDescription("Component to version bump .NET projects, with optional cascading")]
+[assembly: AssemblyDescription("Component to version bump .NET projects, with/without cascading")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Rafael 'Monoman' Teixeira, Managed Commons Team")]
 [assembly: AssemblyProduct("Commons.VersionBumper")]
@@ -34,7 +34,7 @@ using Commons;
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]
 [assembly: Guid("f1da42a3-fe7e-4d64-8747-f85af163d6e2")]
-[assembly: AssemblyVersion("2.0.0")]
-[assembly: AssemblyFileVersion("2.0.0")]
-[assembly: AssemblyInformationalVersion("2.0.0")]
+[assembly: AssemblyVersion("2.1.0")]
+[assembly: AssemblyFileVersion("2.1.0")]
+[assembly: AssemblyInformationalVersion("2.1.0")]
 [assembly: License(LicenseType.MIT)]
