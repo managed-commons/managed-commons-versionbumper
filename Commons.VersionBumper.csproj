@@ -49,8 +49,8 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Commons.Core, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\Commons.Core.1.1.0-Alpha\lib\net45\Commons.Core.dll</HintPath>
+    <Reference Include="Commons.Core, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\Commons.Core.1.2.0-Alpha\lib\net45\Commons.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="NuGet.Versioning, Version=1.0.7.0, Culture=neutral, PublicKeyToken=2e465378e3b1a8dd, processorArchitecture=MSIL">
