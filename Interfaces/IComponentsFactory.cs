@@ -24,8 +24,8 @@ using System.Collections.Generic;
 
 namespace Commons.VersionBumper.Interfaces
 {
-	public interface IComponentsFactory
-	{
-		IEnumerable<IComponent> FindComponentsIn(string folderPath);
-	}
+    public interface IComponentsFactory
+    {
+        IEnumerable<IComponent> FindComponentsIn(ILogger logger, string folderPath);
+    }
 }

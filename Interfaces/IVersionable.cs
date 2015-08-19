@@ -25,10 +25,10 @@ using NuGet.Versioning;
 
 namespace Commons.VersionBumper.Interfaces
 {
-	public interface IVersionable : IComponent
-	{
-		VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency);
+    public interface IVersionable : IComponent
+    {
+        VersionPart PartToCascadeBump(VersionPart partBumpedOnDependency);
 
-		bool SetNewVersion(ILogger log, SemanticVersion version);
-	}
+        bool SetNewVersion(ILogger log, SemanticVersion version);
+    }
 }

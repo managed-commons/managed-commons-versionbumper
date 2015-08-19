@@ -49,15 +49,11 @@ namespace Commons.VersionBumper
                     yield return (TResult)item;
         }
 
-        public static string AsSimpleName(this string originalName)
-        {
-            return originalName.Split('\\').Last(s => !string.IsNullOrWhiteSpace(s));
-        }
+        public static string AsSimpleName(this string originalName) => originalName.Split('\\').Last(s => !string.IsNullOrWhiteSpace(s));
 
         public static SemanticVersion Bump(this SemanticVersion oldVersion, VersionPart partToBump)
         {
-            switch (partToBump)
-            {
+            switch (partToBump) {
                 case VersionPart.Major:
                     return new SemanticVersion(oldVersion.Major + 1, 0, 0);
 
@@ -77,10 +73,7 @@ namespace Commons.VersionBumper
             return Path.Combine(path, relativePath);
         }
 
-        public static string FormatWith(this string format, params string[] args)
-        {
-            return string.Format(format, args);
-        }
+        public static string FormatWith(this string format, params string[] args) => string.Format(format, args);
 
         public static string NormalizeVersion(this string version)
         {
@@ -89,8 +82,7 @@ namespace Commons.VersionBumper
             var parts = version.Split('-');
             version = parts[0];
             var periods = version.Count(c => c == '.');
-            if (periods > 2)
-            {
+            if (periods > 2) {
                 version = version.Substring(0, version.LastIndexOf('.'));
             }
             if (periods < 2)
@@ -103,7 +95,7 @@ namespace Commons.VersionBumper
         public static string ParseStringParameter(this IEnumerable<string> args, string paramName, string @default = null)
         {
             paramName = "-" + paramName.Trim().ToLowerInvariant() + ":";
-            var arg = args.FirstOrDefault(s => s.ToLowerInvariant().StartsWith(paramName));
+            var arg = args.FirstOrDefault(s => s.StartsWith(paramName, StringComparison.InvariantCultureIgnoreCase));
             if (arg == null || arg.Length <= paramName.Length)
                 return @default;
             return arg.Substring(paramName.Length);
@@ -121,7 +113,7 @@ namespace Commons.VersionBumper
         public static string RelativeTo(this string path, string basedir)
         {
             var fullPath = Path.GetFullPath(path);
-            if (path.StartsWith(basedir))
+            if (path.StartsWith(basedir, StringComparison.InvariantCultureIgnoreCase))
                 return path.Substring(basedir.Length + 1);
             var parentBaseDir = Path.GetDirectoryName(basedir);
             if (parentBaseDir.Length < 4 && parentBaseDir[1] == ':')
@@ -139,10 +131,7 @@ namespace Commons.VersionBumper
             versionFile.TransformFile(xml => xml.RegexReplace(pattern, replace));
         }
 
-        public static string ShortVersion(this SemanticVersion version)
-        {
-            return version.ToNormalizedString().Split('-')[0];
-        }
+        public static string ShortVersion(this SemanticVersion version) => version.ToNormalizedString().Split('-')[0];
 
         public static void TransformFile(this string filename, Func<string, string> transformer)
         {
@@ -150,11 +139,10 @@ namespace Commons.VersionBumper
             File.WriteAllText(filename, transformer(File.ReadAllText(filename)));
         }
 
-        private static void TurnOffReadOnlyAttribute(string filename)
+        static void TurnOffReadOnlyAttribute(string filename)
         {
             var attribs = File.GetAttributes(filename);
-            if (attribs.HasFlag(FileAttributes.ReadOnly))
-            {
+            if (attribs.HasFlag(FileAttributes.ReadOnly)) {
                 attribs ^= FileAttributes.ReadOnly;
                 File.SetAttributes(filename, attribs);
             }

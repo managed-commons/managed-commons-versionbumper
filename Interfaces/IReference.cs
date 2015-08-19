@@ -26,8 +26,8 @@ using System.Linq;
 
 namespace Commons.VersionBumper.Interfaces
 {
-	public interface IReference : IEquatable<IReference>
-	{
-		string Name { get; }
-	}
+    public interface IReference : IEquatable<IReference>
+    {
+        string Name { get; }
+    }
 }

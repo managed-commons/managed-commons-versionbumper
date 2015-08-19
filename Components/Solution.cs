@@ -38,15 +38,18 @@ namespace Commons.VersionBumper.Components
             Name = name.AsSimpleName();
         }
 
-        private string GetStraighPath(string fullPath)
+        public string FullPath { get; }
+
+        public string Name { get; }
+
+        string GetStraighPath(string fullPath)
         {
             if (!fullPath.Contains(".."))
                 return fullPath;
             var parts = fullPath.Split('\\');
             var neededParts = new List<string>();
             neededParts.Add(parts[0]);
-            for (int i = 1; i < parts.Length; i++)
-            {
+            for (int i = 1; i < parts.Length; i++) {
                 if (parts[i] == "..")
                     neededParts.RemoveAt(neededParts.Count - 1);
                 else if (parts[i] != ".")
@@ -54,28 +57,10 @@ namespace Commons.VersionBumper.Components
             }
             return string.Join("\\", neededParts.ToArray());
         }
-
-        public string FullPath { get; private set; }
-
-        public string Name { get; private set; }
     }
 
     public class Solution : ISolution
     {
-        protected string _solutionDir;
-
-        private static readonly Regex projectFinder =
-            new Regex(@"Project\(""{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}""\)\s*=\s*""([^""]*)""\s*,\s*""([^""]*)""",
-                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        private static readonly Regex webApplicationFinder =
-            new Regex(@"Project\(""{E24C65DC-7377-472B-9ABA-BC803B73C61A}""\)\s*=\s*""([^""]*)""\s*,\s*""([^""]*)""",
-                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-        private readonly List<ProjectInSolution> _projects = new List<ProjectInSolution>();
-
-        private List<MissingProject> _missingProjects = new List<MissingProject>();
-
         public Solution(string solutionFileFullPath)
         {
             FullPath = solutionFileFullPath;
@@ -85,18 +70,12 @@ namespace Commons.VersionBumper.Components
             InstalledPackagesDir = Path.Combine(_solutionDir, "packages");
         }
 
-        public string FullPath { get; private set; }
+        public string FullPath { get; }
+        public bool HasMissingProjects => _missingProjects.Count > 0;
+        public string InstalledPackagesDir { get; }
+        public string Name { get; }
 
-        public bool HasMissingProjects { get { return _missingProjects.Count > 0; } }
-
-        public string InstalledPackagesDir { get; private set; }
-
-        public string Name { get; private set; }
-
-        public IEnumerable<IFile> Projects
-        {
-            get { return _projects; }
-        }
+        public IEnumerable<IFile> Projects => _projects;
 
         public static void ParseAvailableData(string solutionText, Action<string, string> addProject)
         {
@@ -116,26 +95,28 @@ namespace Commons.VersionBumper.Components
                 logger.ErrorDetail(mp.ToString());
         }
 
-        public bool Equals(ISolution other)
-        {
-            return this.FullPath.Equals(other.FullPath, StringComparison.InvariantCultureIgnoreCase);
-        }
+        public bool Equals(ISolution other) => this.FullPath.Equals(other.FullPath, StringComparison.InvariantCultureIgnoreCase);
 
-        public bool MatchName(string pattern)
-        {
-            return Regex.IsMatch(Name, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        }
+        public bool MatchName(string pattern) => Regex.IsMatch(Name, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-        public override string ToString()
-        {
-            return string.Format("{0} ({1}) - {2} Projects", Name, FullPath, Projects.Count());
-        }
+        public override string ToString() => string.Format("{0} ({1}) - {2} Projects", Name, FullPath, Projects.Count());
 
-        private class MissingProject
-        {
-            private readonly string _project;
-            private readonly List<string> _similarProjects = new List<string>();
+        protected string _solutionDir;
 
+        static readonly Regex projectFinder =
+            new Regex(@"Project\(""{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}""\)\s*=\s*""([^""]*)""\s*,\s*""([^""]*)""",
+                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        static readonly Regex webApplicationFinder =
+                new Regex(@"Project\(""{E24C65DC-7377-472B-9ABA-BC803B73C61A}""\)\s*=\s*""([^""]*)""\s*,\s*""([^""]*)""",
+                    RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        readonly List<ProjectInSolution> _projects = new List<ProjectInSolution>();
+
+        List<MissingProject> _missingProjects = new List<MissingProject>();
+
+        class MissingProject
+        {
             public MissingProject(string project, IEnumerable<IProject> similarProjects)
             {
                 _project = project;
@@ -144,16 +125,18 @@ namespace Commons.VersionBumper.Components
 
             public override string ToString()
             {
-                StringBuilder sb = new StringBuilder();
+                var sb = new StringBuilder();
                 sb.Append("Missing project at ").AppendLine(_project);
-                if (_similarProjects.Count > 0)
-                {
+                if (_similarProjects.Count > 0) {
                     sb.AppendLine("-- similar projects at:");
                     foreach (var similarProject in _similarProjects)
                         sb.Append("---- ").AppendLine(similarProject);
                 }
                 return sb.ToString();
             }
+
+            readonly string _project;
+            readonly List<string> _similarProjects = new List<string>();
         }
     }
 }

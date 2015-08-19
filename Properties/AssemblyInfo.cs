@@ -34,9 +34,7 @@ using Commons;
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]
 [assembly: Guid("f1da42a3-fe7e-4d64-8747-f85af163d6e2")]
-
-[assembly: AssemblyVersion("2.1.1")]
-[assembly: AssemblyFileVersion("2.1.1")]
-[assembly: AssemblyInformationalVersion("2.1.1")]
-
+[assembly: AssemblyVersion("2.1.2")]
+[assembly: AssemblyFileVersion("2.1.2")]
+[assembly: AssemblyInformationalVersion("2.1.2")]
 [assembly: License(LicenseType.MIT)]

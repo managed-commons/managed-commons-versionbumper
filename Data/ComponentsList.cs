@@ -33,9 +33,7 @@ namespace Commons.VersionBumper.Data
     {
         public readonly List<ISolution> Solutions = new List<ISolution>();
 
-        private List<IComponent> _list = new List<IComponent>();
-
-        public int Count { get { return _list.Count; } }
+        public int Count => _list.Count;
 
         public void Clear()
         {
@@ -43,62 +41,50 @@ namespace Commons.VersionBumper.Data
             Solutions.Clear();
         }
 
-        public bool Contains(IComponent component)
-        {
-            return _list.Any(c => component.Equals(c));
-        }
+        public bool Contains(IComponent component) => _list.Any(component.Equals);
 
         public IEnumerable<IComponent> FilterBy(string pattern, bool orderByTreeDepth = false, bool groupByType = false, bool orphans = false)
         {
             var list = _list.FindAll(c => c.MatchName(pattern) && (!orphans || isOrphan(c)));
-            if (groupByType)
-            {
+            if (groupByType) {
                 if (orderByTreeDepth)
-                    list.Sort((c1, c2) =>
-                    {
-                        var typeCompare = c1.Type.CompareTo(c2.Type);
+                    list.Sort((c1, c2) => {
+                        var typeCompare = string.Compare(c1.Type, c2.Type, StringComparison.InvariantCultureIgnoreCase);
                         return typeCompare != 0 ? typeCompare : (c2.DependentComponents.Count() - c1.DependentComponents.Count());
                     });
                 else
-                    list.Sort((c1, c2) =>
-                    {
-                        var typeCompare = c1.Type.CompareTo(c2.Type);
-                        return typeCompare != 0 ? typeCompare : (c1.Name.CompareTo(c2.Name));
+                    list.Sort((c1, c2) => {
+                        var typeCompare = string.Compare(c1.Type, c2.Type, StringComparison.InvariantCultureIgnoreCase);
+                        return typeCompare != 0 ? typeCompare : (string.Compare(c1.Name, c2.Name, StringComparison.InvariantCultureIgnoreCase));
                     });
-            }
-            else
+            } else
                 if (orderByTreeDepth)
                 list.Sort((c1, c2) => (c2.DependentComponents.Count() - c1.DependentComponents.Count()));
             return list;
         }
 
-        public T FindComponent<T>(string componentNamePattern, Func<T, bool> filter = null, bool interactive = true) where T : class
+        public T FindComponent<T>(ILogger logger, string componentNamePattern, Func<T, bool> filter = null, bool interactive = true) where T : class
         {
-            try
-            {
+            try {
                 var list = _list.FindAll(c => c is T && c.MatchName(componentNamePattern));
                 if (filter != null)
                     list = list.FindAll(c => filter(c as T));
                 if (list.Count == 1)
                     return (T)list[0];
-                if (interactive)
-                {
+                if (interactive) {
                     if (list.Count > 20)
                         Console.WriteLine("Too many components match the pattern '{0}': {1}. Try another pattern!", componentNamePattern, list.Count);
                     else if (list.Count == 0)
                         Console.WriteLine("No components match the pattern '{0}'. Try another pattern!", componentNamePattern);
-                    else
-                    {
-                        do
-                        {
+                    else {
+                        do {
                             var i = 0;
                             Console.WriteLine("Select from this list:");
                             foreach (var component in list)
                                 Console.WriteLine("[{0:0000}] {1}", ++i, component);
                             Console.Write("Type 1-{0}, 0 to abandon: ", list.Count);
                             var input = Console.ReadLine();
-                            if (int.TryParse(input, out i))
-                            {
+                            if (int.TryParse(input, out i)) {
                                 if (i == 0)
                                     break;
                                 if (i > 0 && i <= list.Count)
@@ -107,21 +93,18 @@ namespace Commons.VersionBumper.Data
                         } while (true);
                     }
                 }
-            }
-            catch
-            {
+            } catch (Exception e) {
+                logger.Error(e);
             }
             return (T)null;
         }
 
         public void FindDependents()
         {
-            foreach (IComponent component in _list)
-            {
+            foreach (IComponent component in _list) {
                 var preLista = _list.FindAll(c => c.Dependencies.Any(r => r.Equals(component)));
                 var initialCount = 0;
-                do
-                {
+                do {
                     initialCount = preLista.Count;
                     var delta = new List<IComponent>();
                     foreach (IComponent dependentComponent in preLista)
@@ -133,23 +116,16 @@ namespace Commons.VersionBumper.Data
             }
         }
 
-        public IProject FindMatchingComponent(IFile project)
-        {
-            return FindComponent<IProject>("^" + project.Name + "$", p => p.FullPath == project.FullPath, false);
-        }
+        public IProject FindMatchingComponent(ILogger logger, IFile project) => FindComponent<IProject>(logger, "^" + project.Name + "$", p => p.FullPath == project.FullPath, false);
 
-        public IEnumerator<IComponent> GetEnumerator()
-        {
-            return _list.GetEnumerator();
-        }
+        public IEnumerator<IComponent> GetEnumerator() => _list.GetEnumerator();
 
-        public void MatchSolutionsToProjects()
+        public void MatchSolutionsToProjects(ILogger logger)
         {
-            Solutions.Sort((s1, s2) => s1.Name.CompareTo(s2.Name));
+            Solutions.Sort((s1, s2) => string.Compare(s1.Name, s2.Name, StringComparison.InvariantCultureIgnoreCase));
             foreach (var solution in Solutions)
-                foreach (var project in solution.Projects)
-                {
-                    var component = FindMatchingComponent(project);
+                foreach (var project in solution.Projects) {
+                    var component = FindMatchingComponent(logger, project);
                     if (component != null)
                         component.AddParent(solution);
                     else
@@ -159,54 +135,45 @@ namespace Commons.VersionBumper.Data
 
         public void Prune(string path)
         {
-            _list = new List<IComponent>(_list.FindAll(c => !c.FullPath.StartsWith(path)));
+            _list = new List<IComponent>(_list.FindAll(c => !c.FullPath.StartsWith(path, StringComparison.InvariantCultureIgnoreCase)));
             SortByName();
             FindDependents();
         }
 
-        public void Scan(string path, IEnumerable<IComponentsFactory> factories, Action<string> scanned)
+        public void Scan(ILogger logger, string path, IEnumerable<IComponentsFactory> factories, Action<string> scanned)
         {
-            try
-            {
+            try {
                 foreach (IComponentsFactory factory in factories)
-                    _list.AddRange(factory.FindComponentsIn(path));
+                    _list.AddRange(factory.FindComponentsIn(logger, path));
                 foreach (var dir in Directory.EnumerateDirectories(path))
-                    Scan(dir, factories, scanned);
+                    Scan(logger, dir, factories, scanned);
                 foreach (var solutionFullPath in Directory.EnumerateFiles(path, "*.sln"))
                     Solutions.Add(new Solution(solutionFullPath));
                 scanned(path);
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 Console.Error.WriteLine(e);
             }
         }
 
         public void SortByName()
         {
-            _list.Sort((c1, c2) => c1.Name.CompareTo(c2.Name));
+            _list.Sort((c1, c2) => string.Compare(c1.Name, c2.Name, StringComparison.InvariantCultureIgnoreCase));
         }
 
-        private IEnumerable<IProject> FindSimilarProjects(IFile project)
-        {
-            return _list.As<IProject>().Where(c => c.MatchName("^" + project.Name + "$"));
-        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => _list.GetEnumerator();
 
-        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-        {
-            return _list.GetEnumerator();
-        }
+        List<IComponent> _list = new List<IComponent>();
 
-        private bool isOrphan(IComponent c)
+        IEnumerable<IProject> FindSimilarProjects(IFile project) => _list.As<IProject>().Where(c => c.MatchName("^" + project.Name + "$"));
+
+        bool isOrphan(IComponent c)
         {
             var p = c as IProject;
             return (p != null) && (p.Parents.Count() == 0);
         }
 
-        private class LayeredDependencies : IEnumerable<IComponent>
+        class LayeredDependencies : IEnumerable<IComponent>
         {
-            private List<List<IComponent>> lists;
-
             public LayeredDependencies(IEnumerable<IComponent> initialList)
             {
                 lists = new List<List<IComponent>>();
@@ -220,12 +187,16 @@ namespace Commons.VersionBumper.Data
                         yield return component;
             }
 
-            private void Divide(List<IComponent> initialList)
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+            readonly List<List<IComponent>> lists;
+
+            void Divide(List<IComponent> initialList)
             {
                 if (initialList.Count == 0)
                     return;
-                List<IComponent> itemsHere = new List<IComponent>();
-                List<IComponent> itemsAbove = new List<IComponent>();
+                var itemsHere = new List<IComponent>();
+                var itemsAbove = new List<IComponent>();
                 foreach (var component in initialList)
                     if (initialList.Any(c => c.Dependencies.Any(r => r.Equals(component))))
                         itemsHere.Add(component);
@@ -233,11 +204,6 @@ namespace Commons.VersionBumper.Data
                         itemsAbove.Add(component);
                 lists.Insert(0, itemsAbove);
                 Divide(itemsHere);
-            }
-
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
-            {
-                return GetEnumerator();
             }
         }
     }

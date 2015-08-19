@@ -25,28 +25,16 @@ using Commons.VersionBumper.Interfaces;
 
 namespace Commons.VersionBumper.Components
 {
-	public abstract class BasicReference : IReference
-	{
-		public string Name { get; protected set; }
+    public abstract class BasicReference : IReference
+    {
+        public string Name { get; protected set; }
 
-		public bool Equals(IReference other)
-		{
-			return IsEqual(other);
-		}
+        public bool Equals(IReference other) => IsEqual(other);
 
-		public override bool Equals(object obj)
-		{
-			return IsEqual(obj as IReference);
-		}
+        public override bool Equals(object obj) => IsEqual(obj as IReference);
 
-		public override int GetHashCode()
-		{
-			return Name.GetHashCode();
-		}
+        public override int GetHashCode() => Name.GetHashCode();
 
-		private bool IsEqual(IReference other)
-		{
-			return other != null && Name == other.Name;
-		}
-	}
+        bool IsEqual(IReference other) => other != null && Name == other.Name;
+    }
 }
