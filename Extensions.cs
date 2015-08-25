@@ -80,7 +80,7 @@ namespace Commons.VersionBumper
             if (version.Contains('*'))
                 version = version.Replace('*', '0');
             var parts = version.Split('-');
-            version = parts[0];
+            version = parts[0].Trim();
             var periods = version.Count(c => c == '.');
             if (periods > 2) {
                 version = version.Substring(0, version.LastIndexOf('.'));
@@ -88,20 +88,11 @@ namespace Commons.VersionBumper
             if (periods < 2)
                 version += ".0";
             if (parts.Length > 1)
-                version += "-" + parts[1];
+                version += "-" + parts[1].Trim();
             return version;
         }
 
-        public static string ParseStringParameter(this IEnumerable<string> args, string paramName, string @default = null)
-        {
-            paramName = "-" + paramName.Trim().ToLowerInvariant() + ":";
-            var arg = args.FirstOrDefault(s => s.StartsWith(paramName, StringComparison.InvariantCultureIgnoreCase));
-            if (arg == null || arg.Length <= paramName.Length)
-                return @default;
-            return arg.Substring(paramName.Length);
-        }
-
-        public static string RegexReplace(this string text, string pattern, string replace, string altPattern = null, string altReplace = null)
+         public static string RegexReplace(this string text, string pattern, string replace, string altPattern = null, string altReplace = null)
         {
             if (Regex.IsMatch(text, pattern, RegexOptions.Multiline | RegexOptions.IgnoreCase))
                 return Regex.Replace(text, pattern, replace, RegexOptions.Multiline | RegexOptions.IgnoreCase);

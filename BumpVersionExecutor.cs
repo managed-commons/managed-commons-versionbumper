@@ -35,20 +35,25 @@ namespace Commons.VersionBumper.Commands
     {
         public string Help => @"B[umpVersion] [options] pattern [pattern] ...
 
-	Bumps up the [AssemblyVersion]/Package SemanticVersion of the components and rebuilds/repackages.
-	The [AssemblyFileVersion] attribute also is kept in sync with the [AssemblyVersion].
+	Bumps up the [AssemblyVersion] SemanticVersion of the components.
+
+    The [AssemblyFileVersion] and [AssemblyInformationalVersion] attributes are also kept
+    in sync with the [AssemblyVersion].
 
 	Update all dependent components to use the new build/package, also bumping up their
 	version numbers using the specific policy for each component type, and them their dependent
     components and so on.
 
-	If some components generate a Nuget, the Nuget is published to a temporary output 'source'
-	and the dependent components have their package references updated.
+    Patterns are interpreted as regular expressions to match a single component (project/web site)
+    name, each.
 
 	Options
-	  -part:major|minor|build|revision
-		  Increments the major, minor, build, revision version number.
-		  If option is ommitted the default is to increment revision number.
+	  -part:major|minor|build|patch
+		  Increments the major, minor, build (patch) version number.
+		  If option is ommitted the default is not increment any number.
+
+    -de{bug}
+        Prints debug messages.
 
     -diag{nostics}
         Prints information about missing source files for projects and missing projects for solutions.
@@ -60,38 +65,13 @@ namespace Commons.VersionBumper.Commands
         public void Process(ILogger logger, IEnumerable<string> args, params IComponentsFactory[] factories)
         {
             var partToBump = ParsePartToBump(args);
-            var diagnosticsMode = args.Any(s => s.Length > 4 && "-diagnostics".StartsWith(s, StringComparison.OrdinalIgnoreCase));
-            var quietMode = args.Any(s => s.Length > 2 && "-quiet".StartsWith(s, StringComparison.OrdinalIgnoreCase)) && !diagnosticsMode;
-            ComponentsList components = Rescan(logger, factories);
-            if (partToBump != VersionPart.None)
-                foreach (var componentNamePattern in args.Where(s => !s.StartsWith("-", StringComparison.Ordinal))) {
-                    var specificComponent = components.FindComponent<IVersionable>(logger, componentNamePattern);
-                    if (specificComponent != null)
-                        BumpVersion(logger, specificComponent, partToBump);
-                }
-            logger.Info("==========================");
-            logger.Info("Components final versions:");
-            foreach (var component in components) {
-                logger.Info(component.ToString());
-                if (diagnosticsMode) {
-                    var project = component as CSharpProject;
-                    if (project != null && project.HasMissingFiles) {
-                        logger.ErrorDetail("Missing files for project at {0}", project.FullPath);
-                        foreach (var missingFile in project.MissingFiles)
-                            logger.ErrorDetail("-- {0}", missingFile);
-                    }
-                }
-            }
-            if (diagnosticsMode) {
-                logger.Info("================");
-                logger.Info("Solutions found:");
-                foreach (var solution in components.Solutions) {
-                    logger.Info(solution.ToString());
-                    if (solution.HasMissingProjects)
-                        solution.DumpMissingProjects(logger);
-                }
-            }
+            var diagnosticsMode = args.HasParameter("diagnostics", 4);
+            var debugMode = args.HasParameter("debug", 2);
+            var quietMode = args.HasParameter("quiet") && !(diagnosticsMode || debugMode);
+            var patterns = args.NonParameters();
+            Execute(logger, factories, partToBump, diagnosticsMode, quietMode, debugMode, patterns);
         }
+
 
         static bool BumpUp(ILogger logger, IVersionable component, VersionPart partToBump)
         {
@@ -108,7 +88,8 @@ namespace Commons.VersionBumper.Commands
 
         static bool BumpVersion(ILogger logger, IVersionable component, VersionPart partToBump)
         {
-            logger.Info("Bumping versions. Affected version part: {0} number", partToBump);
+            Separator(logger);
+            logger.Info("Bumping versions...");
             using (logger.Block) {
                 if (!BumpUp(logger, component, partToBump))
                     return false;
@@ -118,7 +99,63 @@ namespace Commons.VersionBumper.Commands
             return true;
         }
 
-        static VersionPart ParsePartToBump(IEnumerable<string> args) => TranslateToVersionPart(args.ParseStringParameter("part"));
+        static void Execute(ILogger logger, IComponentsFactory[] factories, VersionPart partToBump, bool diagnosticsMode, bool quietMode, bool debugMode, IEnumerable<string> patterns)
+        {
+            logger.QuietMode = quietMode;
+            logger.IsDebugEnabled = debugMode;
+            LogHeader(logger, partToBump, diagnosticsMode, debugMode, patterns);
+            Separator(logger);
+            ComponentsList components = Rescan(logger, factories);
+            if (partToBump != VersionPart.None) {
+                foreach (var componentNamePattern in patterns) {
+                    var specificComponent = components.FindComponent<IVersionable>(logger, componentNamePattern);
+                    if (specificComponent != null)
+                        BumpVersion(logger, specificComponent, partToBump);
+                }
+            }
+
+            Separator(logger);
+            logger.Info("Components final versions:");
+            using (logger.Block) {
+                foreach (var component in components)
+                    component.DumpTo(logger, diagnosticsMode);
+            }
+            if (diagnosticsMode) {
+                Separator(logger);
+                logger.Info("Solutions found:");
+                using (logger.Block) {
+                    foreach (var solution in components.Solutions) {
+                        logger.Info(solution.ToString());
+                        if (solution.HasMissingProjects)
+                            solution.DumpMissingProjects(logger);
+                    }
+                }
+            }
+        }
+
+        static void LogHeader(ILogger logger, VersionPart partToBump, bool diagnosticsMode, bool debugMode, IEnumerable<string> patterns)
+        {
+            var info = AssemblyInformation.FromEntryAssembly;
+            Separator(logger);
+            logger.Info($"{info.ExeName} {info.Version} bumping versions with");
+            using (logger.Block) {
+                logger.Info($"Part:{partToBump}");
+                logger.Info($"Diagnostics:{diagnosticsMode}");
+                logger.Info($"Debug:{debugMode}");
+                logger.Info($"Patterns: ");
+                using (logger.Block) {
+                    foreach (var pattern in patterns)
+                        logger.Info(pattern);
+                }
+            }
+        }
+
+        static void Separator(ILogger logger)
+        {
+            logger.Info("======================================================");
+        }
+
+        static VersionPart ParsePartToBump(IEnumerable<string> args) => TranslateToVersionPart(args.GetValueForParameter("part"));
 
         static ComponentsList Rescan(ILogger logger, IComponentsFactory[] factories)
         {

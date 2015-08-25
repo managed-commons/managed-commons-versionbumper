@@ -43,5 +43,6 @@ namespace Commons.VersionBumper.Interfaces
         bool MatchName(string pattern);
 
         string ToLongString();
+        void DumpTo(ILogger logger, bool diagnosticsMode);
     }
 }

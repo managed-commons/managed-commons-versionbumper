@@ -21,37 +21,29 @@
 // SOFTWARE.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
-namespace Commons.VersionBumper.Interfaces
+namespace Commons.VersionBumper
 {
-    public interface ILogger
+    public static class ArgsExtensions
     {
-        IDisposable Block { get; }
+        public static bool HasParameter(this IEnumerable<string> args, string paramName, int minLenght = 1)
+        {
+            paramName = "-" + paramName;
+            return args.Any(arg => arg.Length > minLenght && paramName.StartsWith(arg, StringComparison.InvariantCultureIgnoreCase));
+        }
 
-        bool IsDebugEnabled { get; set; }
+        public static IEnumerable<string> NonParameters(this IEnumerable<string> args) => args.Where(s => !s.StartsWith("-", StringComparison.Ordinal));
 
-        bool IsInfoEnabled { get; }
+        public static string GetValueForParameter(this IEnumerable<string> args, string paramName, string @default = null)
+        {
+            paramName = "-" + paramName.Trim() + ":";
+            var arg = args.FirstOrDefault(s => s.StartsWith(paramName, StringComparison.InvariantCultureIgnoreCase));
+            if (arg == null || arg.Length <= paramName.Length)
+                return @default;
+            return arg.Substring(paramName.Length);
+        }
 
-        bool IsWarnEnabled { get; }
-
-        IDisposable QuietBlock { get; }
-
-        bool QuietMode { get; set; }
-
-        void Debug(Exception exception, string message = null);
-
-        void Debug(string format, params object[] args);
-
-        void Error(Exception exception, string message = null);
-
-        void Error(string format, params object[] args);
-
-        void ErrorDetail(string format, params object[] args);
-
-        void Info(string format, params object[] args);
-
-        void Warn(Exception exception, string message = null);
-
-        void Warn(string format, params object[] args);
     }
 }

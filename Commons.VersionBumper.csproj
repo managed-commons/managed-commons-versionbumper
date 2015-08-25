@@ -87,6 +87,7 @@
     <Compile Include="Interfaces\IVersionable.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Utilities\ArgsExtensions.cs" />
     <Compile Include="Utilities\ConsoleLogger.cs" />
   </ItemGroup>
   <ItemGroup>

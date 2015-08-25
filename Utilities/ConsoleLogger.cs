@@ -38,13 +38,30 @@ namespace Commons.VersionBumper.Utilities
 
         public IDisposable Block => new Indenter(this, false);
 
-        public bool IsDebugEnabled { get; private set; }
+        public bool IsDebugEnabled { get; set; }
 
         public bool IsInfoEnabled { get; private set; }
 
         public bool IsWarnEnabled { get; private set; }
 
         public IDisposable QuietBlock => new Indenter(this, true);
+
+        public bool QuietMode
+        {
+            get
+            {
+                return !IsWarnEnabled;
+            }
+
+            set
+            {
+                if (value) {
+                    IsDebugEnabled = false;
+                    IsInfoEnabled = false;
+                    IsWarnEnabled = false;
+                }
+            }
+        }
 
         static string Format(string format, params object[] args) => args.Length == 0 ? format : string.Format(format, args);
 
@@ -123,7 +140,7 @@ namespace Commons.VersionBumper.Utilities
 
         void LogWarn(Func<string> emit)
         {
-            if (IsDebugEnabled)
+            if (IsWarnEnabled)
                 Log(ConsoleColor.Yellow, "WARN: ", emit);
         }
 
@@ -138,14 +155,14 @@ namespace Commons.VersionBumper.Utilities
                 if (quiet)
                     _parent.IsDebugEnabled = _parent.IsInfoEnabled = _parent.IsWarnEnabled = false;
                 _parent._indentLevel++;
-                _parent._indentSpacer = new String(' ', _parent._indentLevel * 4);
+                _parent._indentSpacer = new string(' ', _parent._indentLevel * 4);
             }
 
             public void Dispose()
             {
                 if (_parent._indentLevel > 0) {
                     _parent._indentLevel--;
-                    _parent._indentSpacer = new String(' ', _parent._indentLevel * 4);
+                    _parent._indentSpacer = new string(' ', _parent._indentLevel * 4);
                 }
                 _parent.IsDebugEnabled = _debug;
                 _parent.IsInfoEnabled = _info;

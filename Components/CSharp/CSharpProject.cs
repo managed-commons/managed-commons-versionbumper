@@ -274,7 +274,7 @@ namespace Commons.VersionBumper.Components.CSharp
                     version = version.NormalizeVersion();
                     CurrentVersion = SemanticVersion.Parse(version);
                 } catch (Exception e) {
-                    logger.Error(e.ToString());
+                    logger.Error($"Failed to parse version for project {Name} at {FullPath}:\r\n {e}");
                     return false;
                 }
                 return true;
@@ -339,6 +339,25 @@ namespace Commons.VersionBumper.Components.CSharp
             project.Save(_versionPropertyPath);
             CurrentVersion = version;
             return true;
+        }
+
+        public void DumpTo(ILogger logger, bool diagnosticsMode)
+        {
+            logger.Info(ToString());
+            if (diagnosticsMode) {
+                if (HasMissingFiles) {
+                    logger.ErrorDetail($"Missing files for project at {FullPath}");
+                    foreach (var missingFile in MissingFiles)
+                        logger.ErrorDetail($"-- {missingFile}");
+                }
+            }
+            if (_parents.Count > 1) {
+                logger.Warn($"{Name}{CurrentVersionTag} is multiowned by:");
+                foreach (var parent in _parents)
+                    logger.Warn($"-- {parent.FullPath}");
+            } else if (_parents.Count == 0) {
+                logger.Warn($"{Name}{CurrentVersionTag} is orphan!");
+            }
         }
     }
 }
