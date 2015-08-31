@@ -87,8 +87,6 @@ namespace Commons.VersionBumper
             }
             if (periods < 2)
                 version += ".0";
-            if (parts.Length > 1)
-                version += "-" + parts[1].Trim();
             return version;
         }
 

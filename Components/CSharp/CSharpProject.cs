@@ -302,13 +302,13 @@ namespace Commons.VersionBumper.Components.CSharp
 
         void ParseCurrentVersion(ILogger logger, XDocument project)
         {
-            var appVersionProperty = ExtractProjectProperty(FullPath, "ApplicationVersion");
+            var appVersionProperty = ExtractProjectProperty(FullPath, "AssemblyVersion");
             var appVersion = appVersionProperty.Value;
             _usesVersionProperty = !string.IsNullOrWhiteSpace(appVersion) && !appVersion.Contains('%');
             if (_usesVersionProperty) {
                 _versionPropertyPath = appVersionProperty.FilePath;
                 CurrentVersion = SemanticVersion.Parse(appVersion.NormalizeVersion());
-                Description = ExtractProjectProperty(FullPath, "ApplicationDescription").Value;
+                Description = ExtractProjectProperty(FullPath, "AssemblyDescription").Value;
             } else
                 ParseAssemblyInfo(logger, GetListOfSources(project));
         }
@@ -332,7 +332,7 @@ namespace Commons.VersionBumper.Components.CSharp
         bool VersionPropertySetNewVersion(ILogger logger, SemanticVersion version)
         {
             XDocument project = XDocument.Load(_versionPropertyPath);
-            var element = project.Descendants(_nm + "ApplicationVersion").FirstOrDefault();
+            var element = project.Descendants(_nm + "AssemblyVersion").FirstOrDefault();
             if (element == null)
                 return false;
             element.Value = version.ShortVersion();
